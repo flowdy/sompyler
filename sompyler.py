@@ -10,9 +10,9 @@ def main():
     
     play_melody(1, ["simple", 440, 3])
     time.sleep(1)
-    #play_melody(1, ['vibr',220.0, 60]) # a minute of sound with vibrato
+    play_melody(1, ['vibr',220.0, 10]) # a minute of sound with vibrato
     #play_melody(1, ['many',440.0, 60]) # a minute of sound with vibrato
-    play_melody(1, ['string', 294.0, 1])
+    #play_melody(1, ['string', 294.0, 1])
     
     stream.stop_stream()
 
@@ -31,11 +31,11 @@ def get_samples (timbre, freq, duration):
 
 class Modulation:
 
-    def __init__(self, frequency, base_share, mod_share, shift=0):
+    def __init__(self, frequency, base_share, mod_share, overdrive=True):
         self.base_share = base_share 
         self.mod_share  = mod_share
         self.frequency = frequency
-        self.shift = shift
+        self.overdrive = overdrive
 
     def modulate(self, iseq):
         """ Caution: Not quite sure if that really does what it is supposed to.
@@ -56,8 +56,10 @@ class Modulation:
         b = self.base_share
         m = self.mod_share
         f = self.frequency
-        s = self.shift
-        return ( m * (np.sin(2*np.pi * iseq * f/fs + s) + 1) / 2 + b) / (m + b)
+        o = (m + b) / (2*b) + 0.5 if self.overdrive else 1
+        return o * (
+            m * (np.sin(2*np.pi * iseq * f/fs) + 1) / 2 + b
+        ) / (m + b)
 
 class Partial:
     def __init__(self, nfactor=1, share=1, deviation=0, am=None, fm=None):
@@ -75,7 +77,7 @@ class Partial:
         if self.amplitude_modulation is not None:
             s *= self.amplitude_modulation.modulate(iseq)
         if self.frequency_modulation is not None:
-            freq *= self.frequency_modulation.modulate(iseq)
+            iseq = np.cumsum(self.frequency_modulation.modulate(iseq))
  
         return np.sin( 2*np.pi * iseq * (n*freq+d) / fs ) * s
 
@@ -86,7 +88,7 @@ timbre_inventory = {
     'simple': [P(1)],
     'test': [P(1), P(2,0.13), P(3,0.05)],
     'many': [P(1,15), P(2,0.5), P(3,0.05), P(4,0.3),P(5,0.1),P(6,0.07), P(7,0.33),P(8,0.1),P(9,0.03),P(10,0.01)],
-    'vibr': [P(1), P(2,0.03), P(3,0.15,fm=M(6,2,3))],
+    'vibr': [P(1), P(2,0.03), P(3,0.15,fm=M(6,8,3))],
     'string': [
         P(1), P(2,0.5), P(3,0.15), P(4,0.03), P(5,0.03), P(6,0.1),
         P(7,0.15), P(8,0.2), P(9,0.01), P(10,0.03), P(11,0.01), P(12,0.02),
