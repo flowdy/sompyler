@@ -21,10 +21,68 @@
 
 from __future__ import division
 import numpy as np
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
+
+class Shape:
+
+    def __init__(self, tuning, timbre, lingering):
+        self.tuning = tuning
+        self.timbre = timbre
+        self.lingering = self.lingering
+
+    def render (length=None):
+    
+        lengths = [None, None, None]
+    
+        tuning = self.tuning.deepcopy()
+        timbre = self.timbre.deepcopy()
+        lingering = self.lingering.deepcopy()
+    
+        for i, phase in enumerate([tuning, timbre, lingering]):
+            lengths[i] = phase[0]
+            phase[0] = [0,0]
+    
+        fill = length - lengths[0] if not(length and length > lengths[0]) else 0
+    
+        if fill > lengths[1]:
+            pult, ult = timbre[-2:]
+            ult_rise = (ult[1] - pult[1]) / (ult[0] - pult[0])
+            fill_x = fill * ult[0] / lengths[1]
+            fill_y = ult[1] + (fill_x - ult[0]) * ult_rise
+            if fill_y < 0:
+                # even out fall into negative to being constant 0
+                fill_x2 = fill_x
+                fill_x = -ult[1] / ult_factor + ult[0]
+                fill_y = 0
+            timbre.append([ fill_x, fill_y ])
+            if fill_x2: timbre.append([ fill_x2, fill_y])
+            length[1] = fill
+    
+        results = get_amplitudes(
+            get_bezier_func(*tuning, length=lengths[0]), length[0]
+        )
+    
+        timbre[0][1] = results[-1]
+        results.extend( _get_amplitudes(
+            _get_bezier_func(*timbre, length=lengths[1]), lengths[1]
+        ))
+    
+        if fill and fill < lengths[1]:
+           trim_to_len = sum(lengths[0:1])
+           del results[trim_to_len:]
+    
+        # the lower timbre ends, the shorter be the lingering
+        lengths[2] *= results[-1]
+        lingering[0][1] = results[-1]
+        if lengths[2]: results.extend( _get_amplitudes(
+            _get_bezier_func(*lingering, length=lengths[2]), lengths[2]
+        ))
+        
+        return results
+
 
 _b_cache = {}
-def get_bezier_func(*coords, length):
+def _get_bezier_func(*coords, length):
 
     if p0[0] != 0:
         raise Exception("First coordinate must be at x=0")
@@ -55,7 +113,7 @@ def get_bezier_func(*coords, length):
         
     def b(n,k):
 
-        v = _b_cache[ n + ":" + k ]
+        v = _b_cache.get( n + ":" + k )
         if v: return v
 
         if k == 0: v = 1
@@ -103,7 +161,7 @@ def get_bezier_func(*coords, length):
 # Zu x=0 und x_n=x_max wissen wir y bereits vorab: Beim Einschwingen ist y=t=0 bzw. y=t=1,
 # beim Abklingen verhält es sich umgekehrt, also t=0, y=1 bzw. t=1, y=0.
 
-def get_amplitudes (approx, length):
+def _get_amplitudes (approx, length):
 
     results = [None]*length
     results[0] = 0
@@ -139,41 +197,6 @@ def get_amplitudes (approx, length):
     return results
 
 example = get_bezier_func([0,0], [1, 2.5], [2.5, 1], [5, 3], 530)
-
-def shape_tone (tuning, timbre, lingering, length=None):
-
-    lengths = [None, None, None]
-
-    for i, phase in enumerate([tuning, timbre, lingering]):
-        lengths[i] = phase[0]
-        phase[0] = [0,0]
-
-    fill = length - lengths[0] if not(length and length > lengths[0]) else 0
-
-    results = get_amplitudes(
-        get_bezier_func(*tuning, length=lengths[0]), length[0]
-    )
-
-    timbre[0][1] = results[-1]
-    if fill:
-        results.extend( get_amplitudes(
-            get_bezier_func(*timbre, length=lengths[1]), lengths[1]
-        ))
-        fill -= lengths[1]
-    if fill < 0:
-       trim_to_len = sum(lengths[0:1]) + fill
-       del results[trim_to_len:]
-    elif fill > 0:
-       results.extend( [results[-1]] * fill )
-
-    # the lower timbre ends, the shorter be the lingering
-    lengths[2] *= results[-1]
-    lingering[0][1] = results[-1]
-    if lengths[2]: results.extend( get_amplitudes(
-        get_bezier_func(*lingering, length=lengths[2]), lengths[2]
-    ))
-    
-    return results
 
 def merge_shapes (lower, lshare, higher):
 
