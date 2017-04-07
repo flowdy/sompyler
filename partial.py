@@ -11,10 +11,11 @@ class Partial:
         self.amplitude_modulation = am
         self.frequency_modulation = fm
 
-    def render_samples(self, freq, iseq, shaped_fm=None):
-        n = self.nfactor
-        d = self.deviation
+    def render_samples(self, freq, duration, shaped_fm=None):
+        freq *= self.nfactor * 2**( self.deviation / 1200 )
+
         s = self.share
+        iseq = np.arange(duration)
 
         if self.amplitude_modulation is not None:
             s *= self.amplitude_modulation.modulate(iseq, freq)

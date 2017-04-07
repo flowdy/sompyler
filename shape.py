@@ -25,27 +25,44 @@ import numpy as np
 
 class Shape:
 
-    def __init__(self, tuning, timbre, lingering):
-        self.tuning = tuning
-        self.timbre = timbre
-        self.lingering = self.lingering
+    def __init__(self, onset, sustain=None, decay=None):
+        self.onset = onset
+        self.sustain = sustain
+        self.decay = self.decay
+
+        if ( self.sustain is None
+         and self.decay   is None
+         and self.onset[-1][1] != 0
+        ):
+           raise Exception(
+               "Onset not finalized – last coordinate must have y=0"
+           )
 
     def render (length=None):
     
         lengths = [None, None, None]
     
-        tuning = self.tuning.deepcopy()
-        timbre = self.timbre.deepcopy()
-        lingering = self.lingering.deepcopy()
+        onset = self.onset.deepcopy()
+        sustain = self.sustain.deepcopy()
+        decay = self.decay.deepcopy()
     
-        for i, phase in enumerate([tuning, timbre, lingering]):
-            lengths[i] = phase[0]
-            phase[0] = [0,0]
+        for i, phase in enumerate([onset, sustain, decay]):
+            if phase is None:
+                lengths[i] = 1
+                continue
+
+            lengths[i] = phase[0][0]
+            phase[0][0] = 0
     
         fill = length - lengths[0] if not(length and length > lengths[0]) else 0
     
+        if sustain is None:
+            sustain = [[0,1],[1,1]]
+
+        # When sustain phase ends steeply, we might need to prevent the amplitude
+        # from going below 0 for a long tone
         if fill > lengths[1]:
-            pult, ult = timbre[-2:]
+            pult, ult = sustain[-2:]
             ult_rise = (ult[1] - pult[1]) / (ult[0] - pult[0])
             fill_x = fill * ult[0] / lengths[1]
             fill_y = ult[1] + (fill_x - ult[0]) * ult_rise
@@ -54,28 +71,28 @@ class Shape:
                 fill_x2 = fill_x
                 fill_x = -ult[1] / ult_factor + ult[0]
                 fill_y = 0
-            timbre.append([ fill_x, fill_y ])
-            if fill_x2: timbre.append([ fill_x2, fill_y])
+            sustain.append([ fill_x, fill_y ])
+            if fill_x2: sustain.append([ fill_x2, fill_y])
             length[1] = fill
     
         results = get_amplitudes(
-            get_bezier_func(*tuning, length=lengths[0]), length[0]
+            get_bezier_func(*onset, length=lengths[0]), length[0]
         )
     
-        timbre[0][1] = results[-1]
+        sustain[0][1] = results[-1]
         results.extend( _get_amplitudes(
-            _get_bezier_func(*timbre, length=lengths[1]), lengths[1]
+            _get_bezier_func(*sustain, length=lengths[1]), lengths[1]
         ))
     
         if fill and fill < lengths[1]:
            trim_to_len = sum(lengths[0:1])
            del results[trim_to_len:]
     
-        # the lower timbre ends, the shorter be the lingering
+        # the lower sustain ends, the shorter be the decay
         lengths[2] *= results[-1]
-        lingering[0][1] = results[-1]
+        decay[0][1] = results[-1]
         if lengths[2]: results.extend( _get_amplitudes(
-            _get_bezier_func(*lingering, length=lengths[2]), lengths[2]
+            _get_bezier_func(*decay, length=lengths[2]), lengths[2]
         ))
         
         return results
