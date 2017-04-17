@@ -2,6 +2,7 @@
 
 from __future__ import division
 import numpy as np
+from modulation import Modulation
 #import matplotlib.pyplot as plt
 
 FRAMES_PER_SECOND = 44100
@@ -14,33 +15,56 @@ class Shape(object):
         self.length = span[0]
 
         # scale x to tune length, y to 1
-        x_max = coords[-1]
+        x_max = coords[-1][0]
         y_max = span[1] or max( i[1] for i in coords )
 
         self.coords = [None]
         for i in coords:
-            self.coords.append( [ i[0] / x_max, i[1] / y_max ] )
+            self.coords.append( ( i[0] / x_max, i[1] / y_max ) )
 
         self.coords[0] = [0, 1 if coords[0][1] else 0 ]
 
-    def render (self, y_scale=1, adj_length=False ):
+    @staticmethod
+    def from (bezier):
+
+        if ':' in bezier:
+            coords, bezier = bezier.split(":",1)
+            coords = [[ int(coords), 0 ]] # list with 1 item
+        else:
+            coords = [[ 1, 0 ]]
+
+        m = re.match("^(\d+);", bezier)
+        coords[0][1] = int(m.group(1)) if m else 0
+
+        if m:
+            _, bezier = bezier.split(";",1)
+
+        for m in bezier.split(";"):
+            coords.append([ int(n) for n in m.split(",", 1) ])
+
+        return Shape(*coords)
+    
+    def render (self, length=1, y_scale=1, adj_length=False, span_framerate=True ):
         "Get frames according to the bezier curve specified by the coordinates"
 
         coords = self.coords.deepcopy()
 
-        length = self.length * FRAMES_PER_SECOND
+        length *= self.length
 
         if adj_length and isinstance(adj_length, bool):
             length *= y_scale
             coords = self.new_coords() 
         else:
-            coords = self.new_coords()
+            length += adj_length
+            coords = self.new_coords(adj_length)
+
+        if not length: return []
 
         if not y_scale == 1:
             for i in coords:
                 i[1] *= y_scale
 
-        approx = _get_bezier_func(*coords, length)
+        approx = _get_bezier_func(length, *coords)
     
         results = [None]*length
         results[0] = 0
@@ -101,7 +125,8 @@ class Shape(object):
         elif length > adj_length:
             n = 0
             for i in coords:
-                if adj_length >= i[0]: n++
+                if adj_length >= i[0]:
+                   n += 1
                 else: break
             j = coords[n+1]
             ult_rise = (j[1] - i[1]) / (j[0] - i[0])
@@ -112,7 +137,8 @@ class Shape(object):
         return coords
 
     _b_cache = {}
-    def _get_bezier_func(*coords, length):
+    @staticmethod
+    def _get_bezier_func(length, *coords):
     
         x_last = 0
     
@@ -193,7 +219,7 @@ class Shape(object):
     
         new_coords = [c_last]
     
-        for c in coords[1:]
+        for c in coords[1:]:
             distances.append( (c, _distance(c_last, c)) )
             c_last = c
     
@@ -217,40 +243,58 @@ class Shape(object):
     
         return new_coords
     
-class PartialShapeTriplet(object):
+class Envelope(object):
+    """ Threesome of onset, sustain and release phase of a partial tone.
 
-    constant_sustain = Shape((0,1), (1,1))
+    Please note that differently from the ADSR envelope combining linearly
+    shaped attack, delay, sustain, release phases, as is conventionally used
+    in digital synthesis, in our OSR model a delay part may be optionally
+    merged in either the onset or the sustain.
+    """
 
-    def __init__(self, onset, sustain=None, decay=None):
-        self.onset = Shape(*onset) if onset
-        self.sustain = Shape(*sustain) if sustain
-        self.decay = Shape(*decay) if decay
+    def __init__(self, onset, sustain=None, release=None):
+        self.onset = Shape(*onset)
+        if sustain: self.sustain = Shape(*sustain)
+        if release: self.release = Shape(*release)
 
         if ( self.sustain is None
-         and self.decay   is None
+         and self.release   is None
          and not self.onset.last_y() == 0
         ):
            raise Exception(
-               "Onset not finalized – last coordinate must have y=0"
+               "Onset not finalized despite lacking sustain and release:"
+              + " Last coordinate must be y=0"
            )
 
+    CONSTANT_SUSTAIN = Shape((0,1), (1,1))
+
     def render (length=None):
+        """ considers different prolongation for each phase:
+         * onset: cannot be prolonged or trimmed, static length
+         * sustain: prolonged or trimmed by linear interpolation
+         * release: scaled proportionally extending the sustain
+        """
 
         overlength = length and length > self.onset.length
         fill = length - self.onset.length if overlength else 0
     
         if sustain is None:
-            sustain = constant_sustain
+            sustain = CONSTANT_SUSTAIN
 
-        results = self.onset.render()
+        results = self.onset.render(FRAMES_PER_SECOND)
     
         if fill: results.extend(
-            self.sustain.render( y_scale=self.onset.last_y(), fill )
+            self.sustain.render(
+                FRAMES_PER_SECOND,
+                y_scale=self.onset.last_y(),
+                adj_length=fill
+            )
         )
     
-        if results[-1][1]:
+        if results[-1]:
             results.extend(
-                self.decay.render(
+                self.release.render(
+                    FRAMES_PER_SECOND
                     y_scale=self.sustain.last_y(),
                     adj_length=True
                 )
@@ -259,20 +303,29 @@ class PartialShapeTriplet(object):
         return results
 
 class Oscillator:
-    def __init__(self, shape, am=None, fm=None):
+
+    def __init__(self, shape, am=None, fm=None, W=None):
         self.shape = shape
         self.amplitude_modulation = am
         self.frequency_modulation = fm
+        self.wave_modulation = W
 
-    def render_samples(self, freq, duration, share, shaped_fm=None):
+    def render_samples(
+        self, freq, duration, share=1, shift=0, shaped_fm=None, log_scale=True
+    ):
 
-        iseq = np.arange(duration * FRAMES_PER_SECOND)
+        assert freq < 1 # freq must be passed as quotient by fps
+
+        if isinstance(duration, np.ndarray):
+            iseq = duration
+        else:
+            iseq = np.arange(duration * FRAMES_PER_SECOND)
 
         if self.amplitude_modulation is not None:
-            s *= self.amplitude_modulation.modulate(iseq, freq)
+            share *= self.amplitude_modulation.modulate(iseq, freq)
 
         if self.shape is not None:
-            s *= np.array(self.shape.render(iseq.size))
+            share *= np.array(self.shape.render(iseq.size))
 
         if self.frequency_modulation is not None:
             iseq = np.cumsum(self.frequency_modulation.modulate(iseq, freq))
@@ -280,39 +333,118 @@ class Oscillator:
         elif shaped_fm:
             iseq = np.cumsum( shaped_fm )
 
-        return np.sin(
-            2*np.pi * iseq * (n*freq+d) / FRAMES_PER_SECOND
-        ) * np.power(10.0, -5 * ( 1 - share ))
+        if log_scale:
+            share = np.power( 10.0, -5 * ( 1 - share ) )
+        
+        wave = np.sin( 2*np.pi * iseq * freq + shift )
+
+        wm = self.wave_modulation
+        AMPL_RES = 32768
+        if wm is not None:
+            amplitudes = wm.render(AMPL_RES)
+            xymirrored = [ -x for x in reversed(amplitudes[1:]) ]
+            wave = np.array( amplitudes + xymirrored )[
+                wave * (AMPL_RES-1) / 2.0 ).astype(np.int)
+            ]
+
+        return share * wave
 
 
 class SoundGenerator(object):
 
-    def __init__(self, *partials):
+    def __init__(self, partials):
 
         freq_factors = []
         oscillators = [None]
 
+        _oscache = {}
+        self._oscillators_cache = _oscache
+
         for p in partials:
-            factor, deviation, share, *partial = p
-            shape = partial[0:3]
-            am, fm = partial[3:5]
-            freq_factors.append(
-                (factor * 2 ** ( deviation / CENT_PER_OCTAVE ), share ) 
-            )
-            oscillators.append(
-                Oscillator(PartialShapeTriplet(*), am=am, fm=fm)
-            )
+            pdata = self.parse_partial(p)
+            factor, deviation, share, shape, modulations = pdata
+
+            if isinstance(share, float):
+                freq_factors.append(
+                    (factor * 2 ** ( deviation / CENT_PER_OCTAVE ), share) 
+                )
+                oscillators.append(
+                    Oscillator(PartialShapeTriplet(*shape), **modulations)
+                )
+            else:
+                o = Oscillator(None)
+                _oscache[ share[1:] ] = lambda f, length, s: (
+                    o.render_samples(
+                        factor * ( f or 1/FRAMES_PER_SECOND ),
+                        length, 1, shift=s, log_scale=False
+                    )
+                )
 
         self.freq_factors = Shape((0,0), freq_factors)
         self.oscillators = oscillators
 
-    def render(self, basefreq, length, share, shaped_fm=None):
+    def render(self, basefreq, length, shaped_fm=None):
 
         o = iter(self.oscillators)
         samples = 0
         for p in self.freq_factors[1:]:
-            f = base_freq * p[0]
-            samples += next(o).render_samples(f, length, share, shaped_fm)
+            f = base_freq * p[0] / FRAMES_PER_SECOND
+            samples += next(o).render_samples(f, length, p[1], 0, shaped_fm)
             
         return samples
+
+    def parse_partial (string):
+        dB, nfactor, deltacent, attrs = string.split(" ", 3)
+    
+        if dB.startswith('$'):
+            share = None
+        else:
+            share = int(dB) / 100
+    
+        # nfactor may be undertone: "/n" -> 1/n
+        if nfactor.startswith('/'):
+            nfactor = 1 / int(nfactor[1:])
+        else:
+            nfactor = int(nfactor)
+    
+        attr_dir = { (key, None) for key in "O", "S", "R", "AM", "FM", "W" }
+        for attr in attrs.split(" "):
+            m = re.match(r"([A-Z]+)\(([^)]+)\)", attr)
+            if not m: raise Exception(
+                "Cannot parse partial attribute: {}".format(attr)
+            )
+
+            key, value = m.groups
+            if attr_dir[key] is None:
+                raise Exception( "Attribute {} is not supported".format(key) )
+            attr_dir[ key ] = value
+    
+        shapes = []
+        for i in "OSR":
+            shapes.append(Shape.from(attr_dir[i]) if attr_dir[i] else None)
+
+        for i in 'AM', 'FM':
+            if attr_dir[i]:
+                m = re.match(r"(\d+)(f)?(?:*(\w+))?,(\d+),(\d+)", attr_dir[i])
+                del attr_dir[i]
+                ml = [
+                    int(m.group(1)), int(m.group(4)), int(m.group(5))
+                ] if m else None
+                if m:
+
+                    if m.group(2):
+                        opts['factor'] = ml[0]
+                        ml[0] = None
+                    else:
+                        ml[0] = (ml[0] or 1) / FRAMES_PER_SECOND
+
+                    if m.group(3):
+                        opts['func'] = _oscillators_cache[ m.group(3) ]
+
+                    attr_dir[ i.lowercase() ] = Modulation(*ml, **opts)
+    
+        if attr_dir["W"]:
+            wave = Shape.from( attr_dir["W"] )
+
+        return ( nfactor, deltacent, (share or dB), shapes, attr_dir )
 

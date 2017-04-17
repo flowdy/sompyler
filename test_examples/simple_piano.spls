@@ -1,0 +1,8 @@
+_META:
+   tones_map: 'tones_euro_de+en.splt'
+   instruments_dir: '../instruments'
+piano:
+   specification: 'dev-piano.spli'
+   prominence: 1
+   stereo_position: 0 # center
+   # tuning: [439.83, [lowmost_freq,deviation], [...], ...]
