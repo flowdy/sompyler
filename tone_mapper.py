@@ -33,11 +33,12 @@ def get_mapper_from(source_file):
            + """
              Prepend it with following line:
              SOMPYLER TONE SCALE: 440D49/12
-             The values can be differenct, to adapt for other cultures.
+             The values can be difference, to adapt for other cultures.
              See documentation to learn what they mean.
              """
         )
-        base_freq = int(scale.group(1))
+        base_freq = float(scale.group(1))
+        substract = int(scale.group(2))
         octave_intervals = int(scale.group(3))
         std_freqmap = get_mapping(
             tone_to_frequence(*scale.groups), TOTAL_KEYS_NUM
@@ -46,20 +47,28 @@ def get_mapper_from(source_file):
             (name, num) for names.split(" ") for num, names in tones
         }
         
-    def get_cache (deviant_base_freq=None, *tuning):
+    def get_cache (deviant_base_freq=base_freq, *tuning):
 
-        if not ( deviant_base_freq and deviant_base_freq == base_freq ):
+        if tuning:
+            offset = tuning[0]
+            tunes = [ i*100+c for i, c in enumerate(tuning[1:]) ]
+            tune0 = tunes[ -offset % octave_intervals ]
+            modop = octave_intervals * 100
+            for n in range(TOTAL_KEYS_NUM):
+                i = (n - offset) % octave_intervals
+                freqmap[n] = deviant_base_freq * 2 ** (
+                    ( int( (n-substract) / octave_intervals ) * modop
+                      + ( tunes[i] - tune0 ) % modop
+                    ) / modop
+                )
+            
+        elif not ( deviant_base_freq == base_freq ):
             freqmap = get_mapping( tone_to_frequence(
                 deviant_base_freq, *scale[1:]
             ), TOTAL_KEYS_NUM) 
-            tuner = Shape(TOTAL_KEYS_NUM, tuning).render()
-            for i, freq in enumerate(freqmap):
-                freqmap[i] += freq * 2 ** (
-                    tuner[i] / (octave_intervals * 100.0)
-                )
 
         else: freqmap = std_freqmap
-
+        
         return lambda n: (
             freqmap[ n if isinstance(n,int) else tone_names_to_num_map[n] ]
         )
