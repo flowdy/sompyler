@@ -2,11 +2,11 @@
 
 from __future__ import division
 import numpy as np
-from modulation import Modulation
 #import matplotlib.pyplot as plt
 
 FRAMES_PER_SECOND = 44100
-CENT_PER_OCTAVE = 1200
+CENT_PER_OCTAVE   = 1200
+WAVE_SHAPE_RES    = 32768
 
 class Shape(object):
 
@@ -24,8 +24,8 @@ class Shape(object):
 
         self.coords[0] = [0, 1 if coords[0][1] else 0 ]
 
-    @staticmethod
-    def from (bezier):
+    @classmethod
+    def from (cls, bezier):
 
         if ':' in bezier:
             coords, bezier = bezier.split(":",1)
@@ -42,7 +42,7 @@ class Shape(object):
         for m in bezier.split(";"):
             coords.append([ int(n) for n in m.split(",", 1) ])
 
-        return Shape(*coords)
+        return cls(*coords)
     
     def render (self, length=1, y_scale=1, adj_length=False, span_framerate=True ):
         "Get frames according to the bezier curve specified by the coordinates"
@@ -93,9 +93,6 @@ class Shape(object):
     
         return results
 
-    def is_finalized(self):
-        return self.coords[-1][1] == 0
-
     def new_coords(self, adj_length=None):
         if adj_length < 0:
             raise Exception("Negative shape length")
@@ -135,6 +132,36 @@ class Shape(object):
             coords.append(new_coord)
     
         return coords
+
+    def weighted_avg_with (self, dist, other):
+
+        assert not ( dist < 0 or dist > 1 )
+
+        avg = lambda a, b: (1 - dist) * a + dist * b
+
+        coords = [[ avg( self.length, other.length ), 1 ]]
+
+        if not self.length == other.length:
+            adj_length = coords[0][0]
+
+        scoords = self.new_coords(adj_length)
+        ocoords = other.new_coords(adj_length)
+
+        if not len(scoords) == len(ocoords):
+            avg_coords_num = avg( dist, len(scoords), len(ocoords) )
+            scoords = _adjust_coords_num(scoords, avg_coords_num)
+            ocoords = _adjust_coords_num(ocoords, avg_coords_num)
+
+        for i in range( len(scoords) ):
+            coords.append((
+                avg( scoords[i][0], ocoords[i][0] ),
+                avg( scoords[i][1], ocoords[i][1] )
+            ))
+
+        return Shape(*coords)
+
+    def last_y (self):
+        return self.coords[-1][1]
 
     _b_cache = {}
     @staticmethod
@@ -182,13 +209,26 @@ class Shape(object):
             sum( f(t) for f in yf )
         )
     
+    @staticmethod
     def _distance (a, b):
         return sqrt( (b[1] - a[1])**2 + (b[0] - a[0])**2 )
     
-    def lessen_coords (by_num):
+    def adjust_coords_num (self, num):
+        self.coords = _adjust_coords_num( self.coords, num )
+    @staticmethod
+    def _adjust_coords_num (coords, num):
+        if num > len(coords):
+            return _raise_coords( coords, num - len(coords) )
+        if num < len(coords):
+            return _reduce_coords( coords, len(coords) - num )
+        else:
+            return coords
     
-        coords = self.coords
-
+    def lessen_coords (self, by_num):
+        self.coords = _lessen_coords( self.coords, by_num)
+    @staticmethod
+    def _lessen_coords (coords, by_num):
+    
         def distance_c_to_ab(a, b, c):
             n_ab = (b[1] - a[1]) / (b[0] - a[0])
             n_dc = (a[0] - b[0]) / (b[1] - a[1])
@@ -207,14 +247,14 @@ class Shape(object):
             (coords[0], 1), (coords[-1], 1)
         )
     
-        self.coords = [ c for c in coords if distances[c] ]
+        return [ c for c in coords if distances[c] ]
 
-        return self
-    
-    def raise_coords (by_num):
+    def raise_coords (self, by_num):
+        self.coords = _raise_coords( self.coords, by_num)
+    @staticmethod
+    def _raise_coords (coords, by_num):
     
         distances = []
-        coords = self.coords
         c_last = coords[0]
     
         new_coords = [c_last]
@@ -243,13 +283,55 @@ class Shape(object):
     
         return new_coords
     
+class Modulation(object):
+
+    def __init__(
+        self, frequency, base_share, mod_share,
+        shift=0, overdrive=True, factor=None, func=None
+    ):
+        self.base_share = base_share 
+        self.mod_share  = mod_share
+        if frequency:
+            self.frequency = frequency * (factor or 1)
+        elif factor:
+            self.factor = factor
+        else:
+            raise Exception("No factor passed to use for base frequency")
+        self.shift     = shift
+        self.overdrive = overdrive # center base line
+        self.function  = func or lambda f, l, s: np.sin(2*np.pi * f * l + s)
+
+    def modulate(self, iseq, freq=None):
+        """ We have a constant socket and a part to modulate, the heights
+            of which are given in a relation (base_share:mod_share)
+
+        [-------|-------|-------|-------] Frequency in intervals per second
+           *     *     *     *     *    T
+          ***   ***   ***   ***   ***   | ^ mod_share (3)
+         ***** ***** ***** ***** *****  | = Modulation intensity in relation
+        ******************************* –   to ...
+        ******************************* |
+        ******************************* |
+        ******************************* |
+        ******************************* | ^ base_share (6)
+        ******************************* _ = Minimum amplitude or frequency
+        """
+        b = self.base_share
+        m = self.mod_share
+        f = (self.frequency or self.factor * freq)
+        s = self.shift
+        o = (m + b) / (2*b) + 0.5 if self.overdrive else 1
+        return o * (
+            m * (self.function(f, iseq, s) + 1) / 2 + b
+        ) / (m + b)
+
 class Envelope(object):
     """ Threesome of onset, sustain and release phase of a partial tone.
 
-    Please note that differently from the ADSR envelope combining linearly
-    shaped attack, delay, sustain, release phases, as is conventionally used
-    in digital synthesis, in our OSR model a delay part may be optionally
-    merged in either the onset or the sustain.
+    Please note that in contrast to the ADSR envelope combining linearly
+    shaped attack, delay, sustain and release phase, as is conventionally used
+    in digital synthesis, in our OSR model, formed by bezier curves, a delay
+    part may be optionally merged into either the onset or the sustain.
     """
 
     def __init__(self, onset, sustain=None, release=None):
@@ -294,7 +376,7 @@ class Envelope(object):
         if results[-1]:
             results.extend(
                 self.release.render(
-                    FRAMES_PER_SECOND
+                    FRAMES_PER_SECOND,
                     y_scale=self.sustain.last_y(),
                     adj_length=True
                 )
@@ -302,13 +384,39 @@ class Envelope(object):
         
         return results
 
+    def weighted_avg_with (self, dist, other):
+
+        phases = {}
+
+        for p in 'onset', 'sustain', 'release':
+
+            sattr = getattr(self, p)
+            oattr = getattr(other, p)
+
+            if sattr and oattr:
+                phases[p] = sattr.weighted_avg_with( dist, oattr )
+            elif sattr or oattr:
+                phases[p] = sattr or oattr
+
+        return Envelope( **phases )
+
 class Oscillator:
 
-    def __init__(self, shape, am=None, fm=None, W=None):
-        self.shape = shape
-        self.amplitude_modulation = am
-        self.frequency_modulation = fm
-        self.wave_modulation = W
+    def __init__( self, envelope, **args):
+        self.envelope = envelope
+        for attr in\
+            'amplitude_modulation', 'frequency_modulation', 'wave_shape':
+            if not args[attr]: continue
+            setattr(self, attr, args[attr])
+
+        if self.wave_shape:
+            amplitudes = ws.render(WAVESHAPE_RES)
+            amplitudes = np.array( amplitudes + [
+               -x for x in reversed(amplitudes[1:])
+            ])
+            self.wave_shaper = lambda w: amplitudes[
+                (w * (2*WAVESHAPE_RES-1) / 2.0 ).astype(np.int)
+            ]
 
     def render_samples(
         self, freq, duration, share=1, shift=0, shaped_fm=None, log_scale=True
@@ -324,8 +432,8 @@ class Oscillator:
         if self.amplitude_modulation is not None:
             share *= self.amplitude_modulation.modulate(iseq, freq)
 
-        if self.shape is not None:
-            share *= np.array(self.shape.render(iseq.size))
+        if self.envelope is not None:
+            share *= np.array(self.envelope.render(iseq.size))
 
         if self.frequency_modulation is not None:
             iseq = np.cumsum(self.frequency_modulation.modulate(iseq, freq))
@@ -338,38 +446,56 @@ class Oscillator:
         
         wave = np.sin( 2*np.pi * iseq * freq + shift )
 
-        wm = self.wave_modulation
-        AMPL_RES = 32768
-        if wm is not None:
-            amplitudes = wm.render(AMPL_RES)
-            xymirrored = [ -x for x in reversed(amplitudes[1:]) ]
-            wave = np.array( amplitudes + xymirrored )[
-                wave * (AMPL_RES-1) / 2.0 ).astype(np.int)
-            ]
+        if self.wave_shaper is not None: wave = self.wave_shaper(wave)
 
         return share * wave
 
+    @classmethod
+    def weighted_avg_with( cls, left, dist, right ):
 
+        args = {}
+
+        for each in 'envelope', 'amplitude_modulation',\
+            'frequency_modulation', 'wave_shape':
+            l = getattr(left, each)
+            r = getattr(right, each)
+            if not ( l or r ):
+                continue
+            elif not l:
+                args[each] = r
+            elif not r:
+                args[each] = l
+            else:
+                args[each] = getattr(left, each).weighted_avg_with(
+                    dist, getattr( right, each )
+                )
+
+        return cls(**args)
+    
 class SoundGenerator(object):
 
-    def __init__(self, partials):
+    def __init__ (self, freq_factors, oscillators):
+        self.freq_factors = freq_factors
+        self.oscillators = oscillators
+
+    @classmethod
+    def from (cls, partials):
 
         freq_factors = []
         oscillators = [None]
 
         _oscache = {}
-        self._oscillators_cache = _oscache
 
         for p in partials:
-            pdata = self.parse_partial(p)
-            factor, deviation, share, shape, modulations = pdata
+            pdata = cls.parse_partial(p, _oscache)
+            factor, deviation, share, envelope, modulations = pdata
 
-            if isinstance(share, float):
+            if isinstance(share, int):
                 freq_factors.append(
                     (factor * 2 ** ( deviation / CENT_PER_OCTAVE ), share) 
                 )
                 oscillators.append(
-                    Oscillator(PartialShapeTriplet(*shape), **modulations)
+                    Oscillator(Envelope(*envelope), **modulations)
                 )
             else:
                 o = Oscillator(None)
@@ -380,26 +506,48 @@ class SoundGenerator(object):
                     )
                 )
 
-        self.freq_factors = Shape((0,0), freq_factors)
-        self.oscillators = oscillators
+        return cls( Shape((0,0), freq_factors), oscillators )
 
     def render(self, basefreq, length, shaped_fm=None):
 
         o = iter(self.oscillators)
         samples = 0
         for p in self.freq_factors[1:]:
+            osc = next(o) or continue
             f = base_freq * p[0] / FRAMES_PER_SECOND
-            samples += next(o).render_samples(f, length, p[1], 0, shaped_fm)
+            samples += osc.render_samples(f, length, p[1], 0, shaped_fm)
             
         return samples
 
-    def parse_partial (string):
-        dB, nfactor, deltacent, attrs = string.split(" ", 3)
+    @classmethod
+    def weighted_average (cls, left, dist, right):
+
+        lff = left.freq_factors
+        rff = right.freq_factors
+        loc = left.oscillators[1:]
+        roc = right.oscillators[1:]
+
+        bff = lff.weighted_average_with( dist, rff )
+        boc = [None]
+
+        for i, lo in enumerate(loc):
+            ro = roc[i]
+            if not (lo or ro):
+                boc.append(None)
+                continue
+            boc.append( Oscillator.weighted_average(
+                lo, dist, ro
+            ))
+
+        return cls(bff, boc)
+
+    def parse_partial (string, _oscache):
+        dB_or_ref, nfactor, deltacent, attrs = string.split(" ", 3)
     
-        if dB.startswith('$'):
+        if dB_or_ref.startswith('$'):
             share = None
         else:
-            share = int(dB) / 100
+            share = int(dB_or_ref) / 100
     
         # nfactor may be undertone: "/n" -> 1/n
         if nfactor.startswith('/'):
@@ -407,7 +555,7 @@ class SoundGenerator(object):
         else:
             nfactor = int(nfactor)
     
-        attr_dir = { (key, None) for key in "O", "S", "R", "AM", "FM", "W" }
+        attr_dir = { (key, None) for key in "O", "S", "R", "AM", "FM", "WS" }
         for attr in attrs.split(" "):
             m = re.match(r"([A-Z]+)\(([^)]+)\)", attr)
             if not m: raise Exception(
@@ -424,27 +572,37 @@ class SoundGenerator(object):
             shapes.append(Shape.from(attr_dir[i]) if attr_dir[i] else None)
 
         for i in 'AM', 'FM':
-            if attr_dir[i]:
-                m = re.match(r"(\d+)(f)?(?:*(\w+))?,(\d+),(\d+)", attr_dir[i])
-                del attr_dir[i]
-                ml = [
-                    int(m.group(1)), int(m.group(4)), int(m.group(5))
-                ] if m else None
-                if m:
+            if not attr_dir[i]:
+                continue
 
-                    if m.group(2):
-                        opts['factor'] = ml[0]
-                        ml[0] = None
-                    else:
-                        ml[0] = (ml[0] or 1) / FRAMES_PER_SECOND
+            m = re.match(
+                r"(\d+)(f)?(?:\*(\w+))?,(\d+),(\d+)", attr_dir[i]
+            )
+            del attr_dir[i]
+            ml = [
+                int(m.group(1)), int(m.group(4)), int(m.group(5))
+            ] if m else None
+            if m:
 
-                    if m.group(3):
-                        opts['func'] = _oscillators_cache[ m.group(3) ]
+                if m.group(2):
+                    opts['factor'] = ml[0]
+                    ml[0] = None
+                else:
+                    ml[0] = (ml[0] or 1) / FRAMES_PER_SECOND
 
-                    attr_dir[ i.lowercase() ] = Modulation(*ml, **opts)
+                if m.group(3):
+                    opts['func'] = _oscache[ m.group(3) ]
+                    if not opts['func']: raise Exception(
+                        "Not defined: {}".format(m.group(3))
+                    )
+
+                attr_dir[i] = Modulation(*ml, **opts)
     
-        if attr_dir["W"]:
-            wave = Shape.from( attr_dir["W"] )
+        attr_dir['amplitude_modulation'] = attr_dir.pop('AM')
+        attr_dir['frequency_modulation'] = attr_dir.pop('FM')
 
-        return ( nfactor, deltacent, (share or dB), shapes, attr_dir )
+        if attr_dir["W"]:
+            attr_dir["wave_shape"] = Shape.from( attr_dir.pop("W") )
+
+        return ( nfactor, deltacent, (share or dB_or_ref), shapes, attr_dir )
 

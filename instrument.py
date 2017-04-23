@@ -92,10 +92,12 @@ class Instrument:
             offset = float(key)
 
             if not isinstance(notes, list):
-                notes = [notes]
+                in_accord = [notes]
+            else:
+                in_accord = notes
 
             samples = []
-            for note in notes:
+            for note in in_accord:
                 note_d = meta.copy()
                 note_d.update(_parse_note(note))
                 tone = self.play_tone(note) 
@@ -131,7 +133,7 @@ class Dispatcher(ToneEmitter):
             self.recurse_init(d)
 
         else:
-            self._render = lambda note: next(
+            self._emitter = lambda note: next(
                 d[x] for x in note if note[x] and d[x]
             )
 
@@ -158,13 +160,15 @@ class Interpolator(ToneEmitter):
         for x in it:
             leftval = int(last_item[0])
             rightval = int(x[0])
-            if demanded <= rightval:
+            if demanded == rightval:
+               return x[1]
+            elif demanded < rightval:
                position = (demanded - leftval) / (rightval - leftval)
                gen0 = last_item[1]
                gen1 = x[1]
                break
             last_item = x
 
-        return Generator.merge(
-            gen0._render(note), position, gen1._render(note)
+        return Generator.weighted_average(
+            gen0._emitter(note), position, gen1._emitter(note)
         )
