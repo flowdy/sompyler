@@ -25,7 +25,7 @@ class Shape(object):
         self.coords[0] = [0, 1 if coords[0][1] else 0 ]
 
     @classmethod
-    def from (cls, bezier):
+    def from_string(cls, bezier):
 
         if ':' in bezier:
             coords, bezier = bezier.split(":",1)
@@ -215,6 +215,7 @@ class Shape(object):
     
     def adjust_coords_num (self, num):
         self.coords = _adjust_coords_num( self.coords, num )
+
     @staticmethod
     def _adjust_coords_num (coords, num):
         if num > len(coords):
@@ -226,6 +227,7 @@ class Shape(object):
     
     def lessen_coords (self, by_num):
         self.coords = _lessen_coords( self.coords, by_num)
+
     @staticmethod
     def _lessen_coords (coords, by_num):
     
@@ -251,6 +253,7 @@ class Shape(object):
 
     def raise_coords (self, by_num):
         self.coords = _raise_coords( self.coords, by_num)
+
     @staticmethod
     def _raise_coords (coords, by_num):
     
@@ -299,7 +302,7 @@ class Modulation(object):
             raise Exception("No factor passed to use for base frequency")
         self.shift     = shift
         self.overdrive = overdrive # center base line
-        self.function  = func or lambda f, l, s: np.sin(2*np.pi * f * l + s)
+        self.function  = func or (lambda f, l, s: np.sin(2*np.pi * f * l + s))
 
     def modulate(self, iseq, freq=None):
         """ We have a constant socket and a part to modulate, the heights
@@ -324,6 +327,41 @@ class Modulation(object):
         return o * (
             m * (self.function(f, iseq, s) + 1) / 2 + b
         ) / (m + b)
+
+    def weighted_avg_with(self, dist, other):
+
+        assert not ( dist < 0 or dist > 1 )
+
+        avg = lambda a, b: (1 - dist) * a + dist * b
+
+        attr = {}
+
+        for p in ( 'mod_share', 'base_share' ):            
+            sattr = getattr(self, p) / (self.mod_share + self.base_share)
+            oattr = getattr(other, p) / (right.mod_share + right.base_share)
+            attr[p] = avg(sattr, oattr)
+
+        for p in ( 'frequency', 'factor', 'shift' ):
+
+            sattr = getattr(self, p)
+            oattr = getattr(other, p)
+
+            if sattr and oattr:
+                attr[p] = avg( sattr, oattr )
+            elif sattr or oattr:
+                attr[p] = sattr or oattr
+
+        attr['overdrive'] = self.overdrive if dist < 0.5 else other.overdrive
+
+        if isinstance(self.function, 'Oscillator') and \
+           isinstance(other.function, 'Oscillator'):
+            attr['function'] = Oscillator.weighted_average(
+                self.function, dist, other.function
+            )
+        else:
+            attr['function'] = self.function if dist < 0.5 else other.function
+
+        return Modulation(**attr)
 
 class Envelope(object):
     """ Threesome of onset, sustain and release phase of a partial tone.
@@ -406,7 +444,7 @@ class Oscillator:
         self.envelope = envelope
         for attr in\
             'amplitude_modulation', 'frequency_modulation', 'wave_shape':
-            if not args[attr]: continue
+            if args[attr] is None: continue
             setattr(self, attr, args[attr])
 
         if self.wave_shape:
@@ -418,8 +456,8 @@ class Oscillator:
                 (w * (2*WAVESHAPE_RES-1) / 2.0 ).astype(np.int)
             ]
 
-    def render_samples(
-        self, freq, duration, share=1, shift=0, shaped_fm=None, log_scale=True
+    def __call__(
+        self, freq, duration, shift=0, share=1, shaped_fm=None, log_scale=False
     ):
 
         assert freq < 1 # freq must be passed as quotient by fps
@@ -451,7 +489,7 @@ class Oscillator:
         return share * wave
 
     @classmethod
-    def weighted_avg_with( cls, left, dist, right ):
+    def weighted_average( cls, left, dist, right ):
 
         args = {}
 
@@ -479,7 +517,7 @@ class SoundGenerator(object):
         self.oscillators = oscillators
 
     @classmethod
-    def from (cls, partials):
+    def from_list_of_partials (cls, partials):
 
         freq_factors = []
         oscillators = [None]
@@ -499,12 +537,7 @@ class SoundGenerator(object):
                 )
             else:
                 o = Oscillator(None)
-                _oscache[ share[1:] ] = lambda f, length, s: (
-                    o.render_samples(
-                        factor * ( f or 1/FRAMES_PER_SECOND ),
-                        length, 1, shift=s, log_scale=False
-                    )
-                )
+                _oscache[ share[1:] ] = o
 
         return cls( Shape((0,0), freq_factors), oscillators )
 
@@ -513,9 +546,10 @@ class SoundGenerator(object):
         o = iter(self.oscillators)
         samples = 0
         for p in self.freq_factors[1:]:
-            osc = next(o) or continue
+            osc = next(o)
+            if not osc: continue
             f = base_freq * p[0] / FRAMES_PER_SECOND
-            samples += osc.render_samples(f, length, p[1], 0, shaped_fm)
+            samples += osc(f, length, 0, p[1], shaped_fm, log_scale=True)
             
         return samples
 
@@ -555,7 +589,9 @@ class SoundGenerator(object):
         else:
             nfactor = int(nfactor)
     
-        attr_dir = { (key, None) for key in "O", "S", "R", "AM", "FM", "WS" }
+        attr_dir = dict(
+            (key, None) for key in ["O", "S", "R", "AM", "FM", "WS"]
+        )
         for attr in attrs.split(" "):
             m = re.match(r"([A-Z]+)\(([^)]+)\)", attr)
             if not m: raise Exception(
@@ -568,8 +604,9 @@ class SoundGenerator(object):
             attr_dir[ key ] = value
     
         shapes = []
-        for i in "OSR":
-            shapes.append(Shape.from(attr_dir[i]) if attr_dir[i] else None)
+        for i in "OSR": shapes.append(
+            Shape.from_string(attr_dir[i]) if attr_dir[i] else None
+        )
 
         for i in 'AM', 'FM':
             if not attr_dir[i]:
@@ -602,7 +639,7 @@ class SoundGenerator(object):
         attr_dir['frequency_modulation'] = attr_dir.pop('FM')
 
         if attr_dir["W"]:
-            attr_dir["wave_shape"] = Shape.from( attr_dir.pop("W") )
+            attr_dir["wave_shape"] = Shape.from_string( attr_dir.pop("W") )
 
         return ( nfactor, deltacent, (share or dB_or_ref), shapes, attr_dir )
 
