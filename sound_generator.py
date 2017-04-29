@@ -1,12 +1,15 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import division
+from math import sqrt
 import numpy as np
+import re
+import copy
 #import matplotlib.pyplot as plt
 
-FRAMES_PER_SECOND = 44100
+SAMPLING_RATE = 44100
 CENT_PER_OCTAVE   = 1200
-WAVE_SHAPE_RES    = 32768
+WAVESHAPE_RES    = 32768
 
 class Shape(object):
 
@@ -18,18 +21,16 @@ class Shape(object):
         x_max = coords[-1][0]
         y_max = span[1] or max( i[1] for i in coords )
 
-        self.coords = [None]
+        self.coords = [ (0, 1 if span[1] else 0 ) ]
         for i in coords:
             self.coords.append( ( i[0] / x_max, i[1] / y_max ) )
-
-        self.coords[0] = [0, 1 if coords[0][1] else 0 ]
 
     @classmethod
     def from_string(cls, bezier):
 
         if ':' in bezier:
             coords, bezier = bezier.split(":",1)
-            coords = [[ int(coords), 0 ]] # list with 1 item
+            coords = [[ float(coords), 0 ]] # list with 1 item
         else:
             coords = [[ 1, 0 ]]
 
@@ -47,7 +48,7 @@ class Shape(object):
     def render (self, length=1, y_scale=1, adj_length=False, span_framerate=True ):
         "Get frames according to the bezier curve specified by the coordinates"
 
-        coords = self.coords.deepcopy()
+        coords = copy.deepcopy(self.coords)
 
         length *= self.length
 
@@ -97,7 +98,7 @@ class Shape(object):
         if adj_length < 0:
             raise Exception("Negative shape length")
 
-        coords = self.coords.deepcopy()
+        coords = copy.deepcopy(self.coords)
 
         if adj_length:
             length = coords[-1][0]
@@ -111,6 +112,7 @@ class Shape(object):
             ult_rise = (ult_y - pult_y) / (length - pult_x)
             fill_x = adj_length
             fill_y = ult_y + (fill_x - length) * ult_rise
+            fill_x2 = None
             if fill_y < 0:
                 # even out fall into negative to being constant 0
                 fill_x2 = fill_x
@@ -125,10 +127,10 @@ class Shape(object):
                 if adj_length >= i[0]:
                    n += 1
                 else: break
-            j = coords[n+1]
-            ult_rise = (j[1] - i[1]) / (j[0] - i[0])
-            new_coord = ( adj_length, i[1] + (adj_length - i[0]) * ult_rise )
-            del coords[n+1:]
+            h = coords[n-1]
+            ult_rise = (i[1] - h[1]) / (i[0] - h[0])
+            new_coord = ( adj_length, h[1] + (adj_length - h[0]) * ult_rise )
+            del coords[n:]
             coords.append(new_coord)
     
         return coords
@@ -139,24 +141,27 @@ class Shape(object):
 
         avg = lambda a, b: (1 - dist) * a + dist * b
 
-        coords = [[ avg( self.length, other.length ), 1 ]]
-
-        if not self.length == other.length:
-            adj_length = coords[0][0]
-
+        if self.length == other.length:
+            adj_length = self.length
+        else:
+            adj_length = avg( self.length, other.length )
+        
         scoords = self.new_coords(adj_length)
         ocoords = other.new_coords(adj_length)
 
         if not len(scoords) == len(ocoords):
-            avg_coords_num = avg( dist, len(scoords), len(ocoords) )
-            scoords = _adjust_coords_num(scoords, avg_coords_num)
-            ocoords = _adjust_coords_num(ocoords, avg_coords_num)
+            avg_coords_num = avg( len(scoords), len(ocoords) )
+            scoords = Shape._adjust_coords_num(scoords, avg_coords_num)
+            ocoords = Shape._adjust_coords_num(ocoords, avg_coords_num)
 
+        coords = []
         for i in range( len(scoords) ):
             coords.append((
                 avg( scoords[i][0], ocoords[i][0] ),
                 avg( scoords[i][1], ocoords[i][1] )
             ))
+
+        coords[0] = ( adj_length, coords[0][1] )
 
         return Shape(*coords)
 
@@ -219,9 +224,9 @@ class Shape(object):
     @staticmethod
     def _adjust_coords_num (coords, num):
         if num > len(coords):
-            return _raise_coords( coords, num - len(coords) )
+            return Shape._raise_coords( coords, num - len(coords) )
         if num < len(coords):
-            return _reduce_coords( coords, len(coords) - num )
+            return Shape._reduce_coords( coords, len(coords) - num )
         else:
             return coords
     
@@ -235,7 +240,7 @@ class Shape(object):
             n_ab = (b[1] - a[1]) / (b[0] - a[0])
             n_dc = (a[0] - b[0]) / (b[1] - a[1])
             x = (c[1] - n_dc*c[0] - b[1] + n_ab*b[0]) / (n_ab + n_dc)
-            return _distance( (x, n_ab*(x - b[0]) + b[1]), c )
+            return Shape._distance( (x, n_ab*(x - b[0]) + b[1]), c )
     
         distances = {}
         for i, a in enumerate(coords):
@@ -263,13 +268,13 @@ class Shape(object):
         new_coords = [c_last]
     
         for c in coords[1:]:
-            distances.append( (c, _distance(c_last, c)) )
+            distances.append( (c, Shape._distance(c_last, c)) )
             c_last = c
     
         coeff = by_num / sum( d[1] for d in distances )
         sum_coords = 0
         for i, c in enumerate(coords[1:]):
-            inter_coords = int( distances[i] * coeff + .5 )
+            inter_coords = int( distances[i][1] * coeff + .5 )
             sum_coords += inter_coords
     
             xlen = c[0] - coords[i][0]
@@ -401,11 +406,11 @@ class Envelope(object):
         if sustain is None:
             sustain = CONSTANT_SUSTAIN
 
-        results = self.onset.render(FRAMES_PER_SECOND)
+        results = self.onset.render(SAMPLING_RATE)
     
         if fill: results.extend(
             self.sustain.render(
-                FRAMES_PER_SECOND,
+                SAMPLING_RATE,
                 y_scale=self.onset.last_y(),
                 adj_length=fill
             )
@@ -414,7 +419,7 @@ class Envelope(object):
         if results[-1]:
             results.extend(
                 self.release.render(
-                    FRAMES_PER_SECOND,
+                    SAMPLING_RATE,
                     y_scale=self.sustain.last_y(),
                     adj_length=True
                 )
@@ -465,7 +470,7 @@ class Oscillator:
         if isinstance(duration, np.ndarray):
             iseq = duration
         else:
-            iseq = np.arange(duration * FRAMES_PER_SECOND)
+            iseq = np.arange(duration * SAMPLING_RATE)
 
         if self.amplitude_modulation is not None:
             share *= self.amplitude_modulation.modulate(iseq, freq)
@@ -536,8 +541,7 @@ class SoundGenerator(object):
                     Oscillator(Envelope(*envelope), **modulations)
                 )
             else:
-                o = Oscillator(None)
-                _oscache[ share[1:] ] = o
+                _oscache[ share[1:] ] = Oscillator(None) # No envelope needed
 
         return cls( Shape((0,0), freq_factors), oscillators )
 
@@ -548,7 +552,7 @@ class SoundGenerator(object):
         for p in self.freq_factors[1:]:
             osc = next(o)
             if not osc: continue
-            f = base_freq * p[0] / FRAMES_PER_SECOND
+            f = base_freq * p[0] / SAMPLING_RATE
             samples += osc(f, length, 0, p[1], shaped_fm, log_scale=True)
             
         return samples
@@ -625,7 +629,7 @@ class SoundGenerator(object):
                     opts['factor'] = ml[0]
                     ml[0] = None
                 else:
-                    ml[0] = (ml[0] or 1) / FRAMES_PER_SECOND
+                    ml[0] = (ml[0] or 1) / SAMPLING_RATE
 
                 if m.group(3):
                     opts['func'] = _oscache[ m.group(3) ]
