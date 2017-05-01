@@ -2,9 +2,12 @@
 
 from __future__ import division
 from math import sqrt
+from itertools import izip
 import numpy as np
 import re
 import copy
+from operator import itemgetter
+
 #import matplotlib.pyplot as plt
 
 SAMPLING_RATE = 44100
@@ -27,6 +30,15 @@ class Shape(object):
 
     @classmethod
     def from_string(cls, bezier):
+        """
+        Shape.from_string("length:[y0;]x1,y1;x2,y2;...")
+
+        Define the onset, sustain or release shape of the envelope as a bezier
+        curve, that is, the coordinates of its outer polygon.
+
+        length - the duration of the part of the envelope, in seconds
+        y0 - the y value of point at x=0. Default is 0.
+        """
 
         if ':' in bezier:
             coords, bezier = bezier.split(":",1)
@@ -46,7 +58,7 @@ class Shape(object):
         return cls(*coords)
     
     def render (self, length=1, y_scale=1, adj_length=False, span_framerate=True ):
-        "Get frames according to the bezier curve specified by the coordinates"
+        "Get samples according to the bezier curve"
 
         coords = copy.deepcopy(self.coords)
 
@@ -95,6 +107,19 @@ class Shape(object):
         return results
 
     def new_coords(self, adj_length=None):
+        """
+        Return new, independent coordinate tuples that span original length
+        or a specified one.
+
+        If specified length is less than the original, coordinates are ignored
+        from the end. The last is adjusted linearly.
+
+        If specified length is more than original, coordinates are added at
+        the tail, linearly advancing in the direction defined last. When
+        it hits the y-axis, it proceeds in horizontal direction, because
+        negative values are not allowed.
+        """
+
         if adj_length < 0:
             raise Exception("Negative shape length")
 
@@ -118,7 +143,7 @@ class Shape(object):
                 fill_x2 = fill_x
                 fill_x = -ult_y / ult_rise + length
                 fill_y = 0
-            coords.append([ fill_x, fill_y ])
+            coords.append(( fill_x, fill_y ))
             if fill_x2: coords.append([ fill_x2, fill_y])
 
         elif length > adj_length:
@@ -135,30 +160,36 @@ class Shape(object):
     
         return coords
 
-    def weighted_avg_with (self, dist, other):
+    @classmethod
+    def weighted_average (cls, left, dist, right):
+        """
+        Assuming a smooth transition to anright curve in a distance,
+        Shape.weighted_average(left_shape, distance, right_shape) returns an
+        intermediate shape at a given position < 1 and > 0.
+        """
 
         assert not ( dist < 0 or dist > 1 )
 
         avg = lambda a, b: (1 - dist) * a + dist * b
 
-        if self.length == other.length:
-            adj_length = self.length
+        if left.length == right.length:
+            adj_length = left.length
         else:
-            adj_length = avg( self.length, other.length )
+            adj_length = avg( left.length, right.length )
         
-        scoords = self.new_coords(adj_length)
-        ocoords = other.new_coords(adj_length)
+        lcoords = left.new_coords(adj_length)
+        rcoords = right.new_coords(adj_length)
 
-        if not len(scoords) == len(ocoords):
-            avg_coords_num = avg( len(scoords), len(ocoords) )
-            scoords = Shape._adjust_coords_num(scoords, avg_coords_num)
-            ocoords = Shape._adjust_coords_num(ocoords, avg_coords_num)
+        if not len(lcoords) == len(rcoords):
+            avg_coords_num = int( avg( len(lcoords), len(rcoords) ) + .5 )
+            lcoords = Shape._adjust_coords_num(lcoords, avg_coords_num)
+            rcoords = Shape._adjust_coords_num(rcoords, avg_coords_num)
 
         coords = []
-        for i in range( len(scoords) ):
+        for i in range( len(lcoords) ):
             coords.append((
-                avg( scoords[i][0], ocoords[i][0] ),
-                avg( scoords[i][1], ocoords[i][1] )
+                avg( lcoords[i][0], rcoords[i][0] ),
+                avg( lcoords[i][1], rcoords[i][1] )
             ))
 
         coords[0] = ( adj_length, coords[0][1] )
@@ -219,6 +250,15 @@ class Shape(object):
         return sqrt( (b[1] - a[1])**2 + (b[0] - a[0])**2 )
     
     def adjust_coords_num (self, num):
+        """
+        Adjust number of coordinates so two shapes have the same number and can
+        therefore be meaned.
+
+        When the number is raised, new nodes are inserted in equal distances
+        where the distance between other nodes is greatest.
+        When it is reduced, nodes are dropped of which the distance to the
+        thought line connecting the closest neighbouring nodes is least.
+        """
         self.coords = _adjust_coords_num( self.coords, num )
 
     @staticmethod
@@ -226,7 +266,7 @@ class Shape(object):
         if num > len(coords):
             return Shape._raise_coords( coords, num - len(coords) )
         if num < len(coords):
-            return Shape._reduce_coords( coords, len(coords) - num )
+            return Shape._lessen_coords( coords, len(coords) - num )
         else:
             return coords
     
@@ -243,18 +283,17 @@ class Shape(object):
             return Shape._distance( (x, n_ab*(x - b[0]) + b[1]), c )
     
         distances = {}
-        for i, a in enumerate(coords):
+        for i, a in enumerate(coords[:-2]):
             c = coords[i+1]
             b = coords[i+2]
-            if not b: break
-            distance[c] = distance_c_to_ab(a, b, c)
+            distances[c] = distance_c_to_ab(a, b, c)
     
-        distances = dict(
-            sorted(distances.items, key=distances.get)[by_num:]
-            (coords[0], 1), (coords[-1], 1)
-        )
+        kept_dist = sorted(distances.items(), key=itemgetter(1))[by_num:]
+        kept_dist.append( (coords[0], 1) )
+        kept_dist.append( (coords[-1], 1) )
+        distances = dict( kept_dist )
     
-        return [ c for c in coords if distances[c] ]
+        return [ c for c in coords if distances.get(c) ]
 
     def raise_coords (self, by_num):
         self.coords = _raise_coords( self.coords, by_num)
@@ -262,19 +301,34 @@ class Shape(object):
     @staticmethod
     def _raise_coords (coords, by_num):
     
-        distances = []
+        distances = {}
         c_last = coords[0]
     
         new_coords = [c_last]
     
         for c in coords[1:]:
-            distances.append( (c, Shape._distance(c_last, c)) )
+            distances[c] = Shape._distance(c_last, c)
             c_last = c
     
-        coeff = by_num / sum( d[1] for d in distances )
+        sum_dist = sum( d for d in distances.values() )
+
+        remainders = []
+        rem_by_num = by_num
+        for (c, dist) in distances.items():
+             scaled = dist / sum_dist * by_num
+             int_scaled = int(scaled)
+             remainders.append( (c, scaled - int_scaled) )
+             distances[c] = int_scaled
+             rem_by_num -= int_scaled
+
+        for (c, _) in sorted(
+            remainders, key=itemgetter(1), reverse=True
+        )[0:rem_by_num]:
+            distances[c] += 1
+
         sum_coords = 0
         for i, c in enumerate(coords[1:]):
-            inter_coords = int( distances[i][1] * coeff + .5 )
+            inter_coords = distances[c]
             sum_coords += inter_coords
     
             xlen = c[0] - coords[i][0]
@@ -333,7 +387,8 @@ class Modulation(object):
             m * (self.function(f, iseq, s) + 1) / 2 + b
         ) / (m + b)
 
-    def weighted_avg_with(self, dist, other):
+    @classmethod
+    def weighted_average(self, dist, other):
 
         assert not ( dist < 0 or dist > 1 )
 
@@ -427,7 +482,8 @@ class Envelope(object):
         
         return results
 
-    def weighted_avg_with (self, dist, other):
+    @classmethod
+    def weighted_average (left, dist, right):
 
         phases = {}
 
@@ -437,7 +493,7 @@ class Envelope(object):
             oattr = getattr(other, p)
 
             if sattr and oattr:
-                phases[p] = sattr.weighted_avg_with( dist, oattr )
+                phases[p] = Shape.weighted_average( sattr, dist, oattr )
             elif sattr or oattr:
                 phases[p] = sattr or oattr
 
@@ -445,8 +501,7 @@ class Envelope(object):
 
 class Oscillator:
 
-    def __init__( self, envelope, **args):
-        self.envelope = envelope
+    def __init__( self, **args):
         for attr in\
             'amplitude_modulation', 'frequency_modulation', 'wave_shape':
             if args[attr] is None: continue
@@ -462,21 +517,11 @@ class Oscillator:
             ]
 
     def __call__(
-        self, freq, duration, shift=0, share=1, shaped_fm=None, log_scale=False
+        self, freq, iseq, shift=0, share=1, shaped_fm=None, log_scale=False
     ):
 
         assert freq < 1 # freq must be passed as quotient by fps
-
-        if isinstance(duration, np.ndarray):
-            iseq = duration
-        else:
-            iseq = np.arange(duration * SAMPLING_RATE)
-
-        if self.amplitude_modulation is not None:
-            share *= self.amplitude_modulation.modulate(iseq, freq)
-
-        if self.envelope is not None:
-            share *= np.array(self.envelope.render(iseq.size))
+        assert isinstance(iseq, np.array)
 
         if self.frequency_modulation is not None:
             iseq = np.cumsum(self.frequency_modulation.modulate(iseq, freq))
@@ -484,22 +529,22 @@ class Oscillator:
         elif shaped_fm:
             iseq = np.cumsum( shaped_fm )
 
-        if log_scale:
-            share = np.power( 10.0, -5 * ( 1 - share ) )
-        
         wave = np.sin( 2*np.pi * iseq * freq + shift )
 
         if self.wave_shaper is not None: wave = self.wave_shaper(wave)
 
-        return share * wave
+        if self.amplitude_modulation is not None:
+            wave *= self.amplitude_modulation.modulate(iseq, freq)
+
+        return wave
 
     @classmethod
     def weighted_average( cls, left, dist, right ):
 
         args = {}
 
-        for each in 'envelope', 'amplitude_modulation',\
-            'frequency_modulation', 'wave_shape':
+        for each in 'amplitude_modulation', 'frequency_modulation',\
+            'wave_shape':
             l = getattr(left, each)
             r = getattr(right, each)
             if not ( l or r ):
@@ -509,51 +554,139 @@ class Oscillator:
             elif not r:
                 args[each] = l
             else:
-                args[each] = getattr(left, each).weighted_avg_with(
-                    dist, getattr( right, each )
+                args[each] = getattr(left, each).weighted_average(
+                    getattr(left, each), dist, getattr( right, each )
                 )
 
         return cls(**args)
     
-class SoundGenerator(object):
+class Sympartial(object):
+    """
+    A Sympartial is a partial that is accompanied by partials derived from it
+    by modulation of amplitude, frequency, and/or by wave shaping. With
+    other sympartials, each one with its specified volume share and relative
+    factor of the base frequency according to the played tone, it adds
+    up to the sound emitted by the sound generator.
+    """
 
-    def __init__ (self, freq_factors, oscillators):
-        self.freq_factors = freq_factors
-        self.oscillators = oscillators
+    def __init__(
+        self, envelope=None, oscillator=None
+    ):
+        assert volume >= 0 and volume <= 1
+        self.envelope = envelope
+        self.oscillator = oscillator
+        self.next = None
+
+    def set_next(self, symp):
+        self.next = symp
+
+    def iterate_chain(self):
+
+        current = self
+
+        while True:
+            yield current
+            current = current.next
+            if not current: raise StopIteration
+
+    def interpolate_from(self, base, count=0):
+        
+        merged = {}
+        for (key, base_value) in base.items():
+            my_value = getattr(self, key)
+            if my_value is None:
+                merged[key] = base_value
+            else:
+                merged[key] = my_value
+                count = 0
+
+        if self.next and count:
+            ndef, ncount = self.next.interpolate_from(merged, count + 1)
+            for cls in Envelope, Oscillator:
+                attr = cls.__name__.lowercase()
+                if getattr(self, attr) is not None: continue
+                setattr(self, attr, cls.weighted_average(
+                    base[attr], count / (count + ncount), ndef[attr]
+                ))
+        else:
+            for attr in 'envelope', 'oscillator':
+                if getattr(self, attr) is None:
+                    setattr(self, attr, merged[attr])
+
+        return merged, ncount + 1
+
+    def render(self, freq, share, duration, osc_args):
+
+        iseq = np.arange(duration * SAMPLING_RATE)
+
+        if not share:
+            return 0 * iseq
+
+        if self.envelope is not None:
+            share *= np.array(self.envelope.render(iseq.size))
+
+        # resolve dB -> linear amplitude size
+        share = np.power( 10.0, -5 * ( 1 - share ) )
+
+        return share * self.oscillator.render_samples(
+            freq / SAMPLING_RATE, iseq, 0, share, **osc_args
+        )
 
     @classmethod
-    def from_list_of_partials (cls, partials):
+    def weighted_average(cls, left, dist, other):
 
-        freq_factors = []
-        oscillators = [None]
+        for each in ('envelope', 'oscillator'):
+            l = getattr(left, each)
+            r = getattr(right, each)
+            args[each] = l.weighted_average( l, dist, r )
+
+        return cls(**args)
+
+class SoundGenerator(object):
+
+    def __init__ (self, freq_factors, sympartials):
+        self.freq_factors = freq_factors
+        self.oscillators = sympartials
+
+    @classmethod
+    def from_list_of_partials (cls, partials, base):
+
+        freq_factors = [ (0,0) ]
+        sympartials = [None]
 
         _oscache = {}
 
+        last_ff = None
+
         for p in partials:
-            pdata = cls.parse_partial(p, _oscache)
-            factor, deviation, share, envelope, modulations = pdata
+            props, oscillator = cls.parse_partial(p, _oscache)
 
-            if isinstance(share, int):
-                freq_factors.append(
-                    (factor * 2 ** ( deviation / CENT_PER_OCTAVE ), share) 
-                )
-                oscillators.append(
-                    Oscillator(Envelope(*envelope), **modulations)
-                )
+            if isinstance(props, tuple):
+                factor, deviation, share, envelope = props
+                freq_factor = factor * 2 ** ( deviation / CENT_PER_OCTAVE )
+                if sympartials and not freq_factor > last_ff:
+                    raise Exception(
+                        "Frequence factor must be greater than the prior"
+                    )
+                last_ff = freq_factor
+                freq_factors.append( (freq_factor, share) )
+                symp = Sympartial(envelope, oscillator)
+                if last_ff: sympartials[-1].set_next(symp)
+                sympartials.append(symp)
             else:
-                _oscache[ share[1:] ] = Oscillator(None) # No envelope needed
+                _oscache[ props[1:] ] = oscillator
 
-        return cls( Shape((0,0), freq_factors), oscillators )
+        sympartials[1].interpolate_from( sympartials[0] )
 
-    def render(self, basefreq, length, shaped_fm=None):
+        return cls( Shape(*freq_factors), sympartials )
 
-        o = iter(self.oscillators)
+    def render(self, basefreq, duration, shaped_fm=None):
+
+        sympit = self.sympartials.iterate_chain()
+        ff = self.freq_factors.iterate_coords_from(1)
         samples = 0
-        for p in self.freq_factors[1:]:
-            osc = next(o)
-            if not osc: continue
-            f = base_freq * p[0] / SAMPLING_RATE
-            samples += osc(f, length, 0, p[1], shaped_fm, log_scale=True)
+        for (p, s) in izip(ff, sympit):
+            samples += s.render(base_freq * p[0], p[1], duration, shaped_fm)
             
         return samples
 
@@ -565,7 +698,7 @@ class SoundGenerator(object):
         loc = left.oscillators[1:]
         roc = right.oscillators[1:]
 
-        bff = lff.weighted_average_with( dist, rff )
+        bff = Shape.weighted_average( lff, dist, rff )
         boc = [None]
 
         for i, lo in enumerate(loc):
@@ -579,19 +712,41 @@ class SoundGenerator(object):
 
         return cls(bff, boc)
 
+    @staticmethod
     def parse_partial (string, _oscache):
-        dB_or_ref, nfactor, deltacent, attrs = string.split(" ", 3)
+        """
+        returns a tuple of two items
+            1. either name of an oscillator to reuse in modulations,
+               or a subtuple: (freq_factor, deviation volume, envelope)
+            2. oscillator object
+        """
+
+        head, attrs = string.split(" ", 1)
     
-        if dB_or_ref.startswith('$'):
+        if head.startswith('$'):
             share = None
         else:
-            share = int(dB_or_ref) / 100
+
+            m = re.match(r"^(/?\d+)([+-]\d+)?@(\d+)$", head)
+            if not m: raise Exception(
+                "Syntax error in partial definition. Got {}. Expecting {}".format(
+                    head, "'N?deltacent@volume', i.e. "
+                        + "N: Integer frequence factor;"
+                        + "?deltacent: +n or -n cent deviation, signed;"
+                        + "volume: n dB% of total amplitude, 0 to 100"
+                )
+            )
+
+            nfactor = m.group(1)
+            # nfactor may be undertone: "/n" -> 1/n
+            if nfactor.startswith('/'):
+                nfactor = 1 / int(nfactor[1:])
+            else:
+                nfactor = int(nfactor)
+
+            deviation = int(m.group(2) or 0)
+            share = int(m.group(3)) / 100
     
-        # nfactor may be undertone: "/n" -> 1/n
-        if nfactor.startswith('/'):
-            nfactor = 1 / int(nfactor[1:])
-        else:
-            nfactor = int(nfactor)
     
         attr_dir = dict(
             (key, None) for key in ["O", "S", "R", "AM", "FM", "WS"]
@@ -607,10 +762,13 @@ class SoundGenerator(object):
                 raise Exception( "Attribute {} is not supported".format(key) )
             attr_dir[ key ] = value
     
-        shapes = []
-        for i in "OSR": shapes.append(
-            Shape.from_string(attr_dir[i]) if attr_dir[i] else None
-        )
+        envelope = []
+        for i in "OSR":
+            attr = attr_dir.pop(i)
+            envelope.append(
+                Shape.from_string(attr) if attr else None
+            )
+        envelope = Envelope(envelope)
 
         for i in 'AM', 'FM':
             if not attr_dir[i]:
@@ -619,7 +777,7 @@ class SoundGenerator(object):
             m = re.match(
                 r"(\d+)(f)?(?:\*(\w+))?,(\d+),(\d+)", attr_dir[i]
             )
-            del attr_dir[i]
+
             ml = [
                 int(m.group(1)), int(m.group(4)), int(m.group(5))
             ] if m else None
@@ -634,7 +792,7 @@ class SoundGenerator(object):
                 if m.group(3):
                     opts['func'] = _oscache[ m.group(3) ]
                     if not opts['func']: raise Exception(
-                        "Not defined: {}".format(m.group(3))
+                        "Oscillator not defined: {}".format(m.group(3))
                     )
 
                 attr_dir[i] = Modulation(*ml, **opts)
@@ -645,5 +803,9 @@ class SoundGenerator(object):
         if attr_dir["W"]:
             attr_dir["wave_shape"] = Shape.from_string( attr_dir.pop("W") )
 
-        return ( nfactor, deltacent, (share or dB_or_ref), shapes, attr_dir )
+        oscillator = Oscillator(**attr_dir)
 
+        if share:
+            return (nfactor, deviation, share, envelope), oscillator
+        else:
+            return head, oscillator
