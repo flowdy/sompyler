@@ -349,7 +349,7 @@ class Modulation(object):
 
     def __init__(
         self, frequency, base_share, mod_share,
-        shift=0, overdrive=True, factor=None, func=None
+        shift=0, overdrive=True, factor=None, func=None, env=None
     ):
         self.base_share = base_share 
         self.mod_share  = mod_share
@@ -361,7 +361,13 @@ class Modulation(object):
             raise Exception("No factor passed to use for base frequency")
         self.shift     = shift
         self.overdrive = overdrive # center base line
-        self.function  = func or (lambda f, l, s: np.sin(2*np.pi * f * l + s))
+        if not func: func = (lambda f, l, s: np.sin(2*np.pi * f * l + s))
+
+        if env:
+           inner_func = func
+           func = lambda f, l, s: env.render(l.size) * inner_func(f, l, s)
+
+        self.function = func
 
     def modulate(self, iseq, freq=None):
         """ We have a constant socket and a part to modulate, the heights
@@ -775,25 +781,31 @@ class SoundGenerator(object):
                 continue
 
             m = re.match(
-                r"(\d+)(f)?(?:\*(\w+))?,(\d+),(\d+)", attr_dir[i]
+                r"(\d+)(f)?(?:\*(\w+))?,(\d+),(\d+)(?:,(-?\d+))(?:/(.+))",
+                attr_dir[i]
             )
 
-            ml = [
-                int(m.group(1)), int(m.group(4)), int(m.group(5))
-            ] if m else None
             if m:
+
+                ml = [
+                    None, int(m.group(4)), int(m.group(5)),
+                    int(m.group(6)) or 0
+                ]
 
                 if m.group(2):
                     opts['factor'] = ml[0]
                     ml[0] = None
                 else:
-                    ml[0] = (ml[0] or 1) / SAMPLING_RATE
+                    ml[0] = float(m.group(1) or 1) / SAMPLING_RATE
 
                 if m.group(3):
                     opts['func'] = _oscache[ m.group(3) ]
                     if not opts['func']: raise Exception(
                         "Oscillator not defined: {}".format(m.group(3))
                     )
+
+                if m.group(7):
+                    opts['env'] = Shape.from_string( "1:0;" + m.group(7) )
 
                 attr_dir[i] = Modulation(*ml, **opts)
     
