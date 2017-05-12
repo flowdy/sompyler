@@ -1,6 +1,6 @@
 import yaml
 import codecs
-from sound_generator import Shape
+import re
 
 TOTAL_KEYS_NUM = 88
 
@@ -18,10 +18,10 @@ def get_mapper_from(source_file):
         for n in range(num):
             freq = mapper(n+1)
             freqmap.append(freq)
-            for name in i.split():                      
-                tone_names_to_freq_map[name] = freq
 
         return freqmap
+
+    tone_names_to_num_map = {}
 
     with codecs.open(source_file, encoding="utf-8") as tones:
         scale = re.match(
@@ -41,11 +41,11 @@ def get_mapper_from(source_file):
         substract = int(scale.group(2))
         octave_intervals = int(scale.group(3))
         std_freqmap = get_mapping(
-            tone_to_frequence(*scale.groups), TOTAL_KEYS_NUM
+            tone_to_frequence(*scale.groups()), TOTAL_KEYS_NUM
         )
-        tone_names_to_num_map = {
-            (name, num) for names.split(" ") for num, names in tones
-        }
+        for num, names in enumerate(tones):
+            for name in names.strip().split(" "):
+                tone_names_to_num_map[name] = num+1 
         
     def get_cache (deviant_base_freq=base_freq, *tuning):
 
