@@ -14,7 +14,7 @@ Basics
 There are a bunch of definition files that are used to describe the
 audio output into a wave file.
 
-  1. (TODO) Tone system and mapping. In the distribution there is a file to define
+  1. Tone system and mapping. In the distribution there is a file to define
      the common tune of 440Hz for the 49th key (A4) with 12 tone steps per
      octave. Use that to play western music. These settings accord to the MIDI
      standard. 88 notes can be referenced by english or german names.
@@ -41,10 +41,10 @@ audio output into a wave file.
          Plus, a partial can be modified by frequency modulation, amplitude
          modulation (both shapable too), wave shaping.
 
-       * Variations are interpolated based on scalar properties of a note,
+       * (TODO) Variations are interpolated based on scalar properties of a note,
          like base frequency or stress.
 
-       * Variations can also be selected based on discrete properties, e.g.
+       * (TODO) Variations can also be selected based on discrete properties, e.g.
          if the sustain pedal of a piano is pressed.
 
      As yet, sound generators can be defined. [Learn how](doc/instrument-definition.md)

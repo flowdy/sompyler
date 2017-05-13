@@ -39,7 +39,7 @@ class Modulation(object):
            func = (lambda f, l, s: sin(2*pi * f * l + s))
         if envelope:
            inner_func = func
-           func = lambda f, l, s: envelope.render(l.size) * inner_func(f, l, s)
+           func = lambda f, l, s: envelope.render(l.size-1) * inner_func(f, l, s)
 
         self.function = func
 

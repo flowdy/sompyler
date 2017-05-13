@@ -41,7 +41,7 @@ class Oscillator:
 
         if isinstance(iseq, int):
             iseq = np.arange(iseq)
-        else: assert isinstance(iseq, np.array)
+        else: assert isinstance(iseq, np.ndarray)
 
         if self.frequency_modulation:
             iseq = np.cumsum(self.frequency_modulation.modulate(iseq, freq))
