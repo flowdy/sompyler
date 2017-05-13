@@ -2,7 +2,7 @@
 
 from __future__ import division
 import numpy as np
-from Sompyler.synthesizer import WAVESHAPE_RES
+from Sompyler.synthesizer import BYTES_PER_CHANNEL
 from Sompyler.synthesizer.modulation import Modulation
 from Sompyler.synthesizer.shape import Shape
 
@@ -11,22 +11,23 @@ class Oscillator:
     def __init__( self, **args):
 
         for attr in 'amplitude_modulation', 'frequency_modulation':
-            if args[attr]:
-                mod = Modulation.from_string( args[attr], oscache )
+            if args.get(attr):
+                mod = Modulation.from_string( args[attr], args['oscache'] )
             else: mod = None
             setattr(self, attr, mod)
 
-        ws = args['wave_shape']
+        ws = args.get('wave_shape')
         if ws:
             if not isinstance(ws, Shape):
                 ws = Shape.from_string( ws )
             self.wave_shape = ws
-            amplitudes = ws.render(WAVESHAPE_RES)
+            waveshape_res = 2 ** (BYTES_PER_CHANNEL * 8 - 1)
+            amplitudes = ws.render(waveshape_res)
             amplitudes = np.array( amplitudes + [
                -x for x in reversed(amplitudes[1:])
             ])
             self.wave_shaper = lambda w: amplitudes[
-                (w * (2*WAVESHAPE_RES / 2.0) ).astype(np.int)
+                (w * (waveshape_res-1) ).astype(np.int)
             ]
         else:
             self.wave_shape  = None
@@ -37,7 +38,10 @@ class Oscillator:
     ):
 
         assert freq < 1 # freq must be passed as quotient: ?Hz/fps
-        assert isinstance(iseq, np.ndarray)
+
+        if isinstance(iseq, int):
+            iseq = np.arange(iseq)
+        else: assert isinstance(iseq, np.array)
 
         if self.frequency_modulation:
             iseq = np.cumsum(self.frequency_modulation.modulate(iseq, freq))

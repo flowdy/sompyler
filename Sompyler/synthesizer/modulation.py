@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import division
+from Sompyler.synthesizer import SAMPLING_RATE
 from Sompyler.synthesizer.shape import Shape
-import numpy as np
+from numpy import pi, sin
 import re
 
 class Modulation(object):
 
     def __init__(
-        self, frequency, base_share, mod_share,
-        phase_angle_degrees=0, overdrive=True, arg1_is_carrier_divisor=False, 
+        self, frequency, mod_share, base_share,
+        phase_angle_degrees=0, overdrive=True, arg1_periods_unit=False, 
         use_oscillator=None, envelope=None
     ):
         """ We have a constant socket and a part to modulate, the heights
@@ -26,35 +27,40 @@ class Modulation(object):
         ******************************* | ^ base_share (6)
         ******************************* _ = Minimum amplitude or frequency
         """
-        self.base_share = base_share 
+        self.frequency  = frequency
         self.mod_share  = mod_share
-        self.is_dynamic = arg1_is_carrier_divisor
-        self.init_phase  = phase_angle_degrees * np.pi / 180
+        self.base_share = base_share 
+        self.is_dynamic = arg1_periods_unit
+        self.init_phase = phase_angle_degrees * pi / 180
         self.overdrive = overdrive # center base line
 
         func = use_oscillator
         if not func:
-           func = (lambda f, l, s: np.sin(2*np.pi * f * l + s))
+           func = (lambda f, l, s: sin(2*pi * f * l + s))
         if envelope:
            inner_func = func
            func = lambda f, l, s: envelope.render(l.size) * inner_func(f, l, s)
 
         self.function = func
 
+    @classmethod
     def from_string(cls, string, oscache):
         m = re.match(
-            r"(\d+)(f)?(?:\*(\w+))?,(\d+),(\d+)(?:,(-?\d+))(?:,env:(.+))?",
+            r"(\d+)(p)?(?:\*(\w+))?;(\d+):(\d+)(?:;([+-]\d+))?(?:,env:(.+))?",
             string
         )
 
         if m:
 
+            opts = {}
             ml = [
-                None, int(m.group(4)), int(m.group(5)),
-                int(m.group(6)) or 0
+                int(m.group(1)),
+                int(m.group(4)) if m.group(4) else None,
+                int(m.group(5)) if m.group(5) else None,
+                int(m.group(6)) if m.group(6) else 0
             ]
 
-            opts['arg1_is_carrier_divisor'] = bool(m.group(2))
+            opts['arg1_periods_unit'] = bool(m.group(2))
 
             if m.group(3):
                 o = oscache[ m.group(3) ]
@@ -67,12 +73,17 @@ class Modulation(object):
             if m.group(7):
                 opts['envelope'] = Shape.from_string( "1:" + m.group(7) )
 
-            attr_dir[i] = Modulation(*ml, **opts)
-    
+            return Modulation(*ml, **opts)
+
+        else:
+            raise Exception("Modulation definition syntax")
+
     def modulate(self, iseq, freq=None):
         b = self.base_share
         m = self.mod_share
-        f = freq / self.frequency if self.is_dynamic else self.frequency
+        f = ( freq * self.frequency if self.is_dynamic
+              else self.frequency / SAMPLING_RATE
+            )
         p = self.init_phase
         o = (m + b) / (2*b) + 0.5 if self.overdrive else 1
         return o * (
