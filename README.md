@@ -56,8 +56,21 @@ audio output into a wave file.
 System requirements
 -------------------
 
-  * Python 2.7
+### Software
+
+Besides of Python 2.7.x (as a Python newbie I postpone rewrite for 3.x, since
+version 2.x is more present in my job and self-confusion is not very much fun)
+one needs only two packages :
+
   * PyYAML
+  * Numpy
+
+While the sompyler is in alpha state, I rather focus development of core features
+than getting it to run on other systems than mine, which is a Debian GNU/Linux.
+
+Sufficiently fast CPU and much RAM (at least 1G, depending on the length of the
+score you want to compile) is recommended since sound data is purely calculated
+i.e. without external sound fonts and things like that.
 
 TODO
 ----
@@ -66,4 +79,26 @@ As of May 12th, 2017 I intend to elaborate
 
     - Test and debug sympartial interpolation
     - Parse full instrument character specification from YAML text
+    - Read scores from YAML text.
 
+Copyright & License
+-------------------
+
+(C) 2017 Florian 'flowdy' Heß, except for the parts under explicitly different
+copyright or license, or attribution and source link.
+
+Below license is preliminary:
+
+When switching from pre-alpha to alpha, I will also choose an open-source license.
+Not before then I welcome anybody to fork my project. That is, I do not want anybody
+to fork it, yet (of course, technically I cannot prevent that, to even try would be quite
+ridicule).
+
+When switching from pre-alpha to alpha, I will start version numbering, supply a
+setup.py, test routines, and a proper license. Since then I will also keep master
+branch stable and functioning.
+
+I currently publish on GitHub for the sole purposes of a) an external backup and b)
+to inform others what I am doing. Use by others beyond just reading the sources
+to learn from my errors is something I no more than condone. So please do not
+count on my support or hold me liable for whatever you might suffer from using it.
