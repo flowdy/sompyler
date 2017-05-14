@@ -2,6 +2,8 @@
 
 from __future__ import division
 from math import sqrt
+from cpython cimport array
+import array
 import re
 import copy
 from operator import itemgetter
@@ -80,6 +82,8 @@ class Shape(object):
 
         coords = copy.deepcopy(self.coords)
 
+        cdef int length
+
         if adj_length and isinstance(adj_length, bool):
             unit_length *= y_scale
             coords = self.new_coords(y_scale=y_scale) 
@@ -93,30 +97,14 @@ class Shape(object):
 
         approx = Shape._get_bezier_func(*coords)
     
-        results = [None]*(length+1)
+        cdef float[:] results = array.array('f', [None]*(length+1))
         results[0] = coords[0][1]
         results[-1] = coords[-1][1]
     
-        def scan_bezier(start, pos, max):
-        
-            t = start + pos
-            x, y = approx( t ); x = int(x * length)
-            results[ x ] = y
-            half_pos = pos / 2
+        scan_bezier( approx, length, results, 0, .5, length )
     
-            if results[ x-1 ] is None:
-                scan_bezier( start, half_pos, x-1 )
-            elif x == length or results[ x+1 ] is not None:
-                return
-        
-            if x < max:
-                scan_bezier( start+pos, half_pos, max )
-    
-            return
-        
-        scan_bezier( 0, .5, length )
-    
-        return results
+        res = [x for x in results]
+        return res
 
     def new_coords(self, adj_length=None, y_scale=None):
         """
@@ -267,7 +255,7 @@ class Shape(object):
         When it is reduced, nodes are dropped of which the distance to the
         thought line connecting the closest neighbouring nodes is least.
         """
-        self.coords = _adjust_coords_num( self.coords, num )
+        self.coords = Shape._adjust_coords_num( self.coords, num )
 
     @staticmethod
     def _adjust_coords_num (coords, num):
@@ -279,7 +267,7 @@ class Shape(object):
             return coords
 
     def lessen_coords (self, by_num):
-        self.coords = _lessen_coords( self.coords, by_num)
+        self.coords = Shape._lessen_coords( self.coords, by_num)
 
     @staticmethod
     def _lessen_coords (coords, by_num):
@@ -308,7 +296,7 @@ class Shape(object):
         return [ c for c in coords if distances.get(c) ]
 
     def raise_coords (self, by_num):
-        self.coords = _raise_coords( self.coords, by_num)
+        self.coords = Shape._raise_coords( self.coords, by_num)
 
     @staticmethod
     def _raise_coords (coords, by_num):
@@ -357,4 +345,26 @@ class Shape(object):
     
         return new_coords
     
+cdef void scan_bezier(
+       object approx, int length, float[:] results,
+       float start, float pos, int max
+    ) except *:
+
+    cdef float t = start + pos
+    cdef float x, y
+    x, y = approx( t );
+    cdef int ix = int(x * length)
+    results[ ix ] = y
+    cdef float half_pos = pos / 2
+
+    if results[ ix-1 ] is None:
+        scan_bezier( approx, length, results, start, half_pos, ix-1 )
+    elif x == length or results[ ix+1 ] is not None:
+        return
+
+    if x < max:
+        scan_bezier( approx, length, results, start+pos, half_pos, max )
+
+    return
+
 
