@@ -16,6 +16,9 @@ class SoundGenerator(object):
         self.freq_factors = freq_factors
         self.sympartials = sympartials
         self.named_oscillators = oscache
+        self.heard_to_base_freq_divisor = _heard_to_base_freq_divisor(
+             freq_factors
+        )
 
     @classmethod
     def from_partial_spec_list (cls, partials, base=None):
@@ -76,7 +79,9 @@ class SoundGenerator(object):
                     sympartials[nexti][1] if nexti else final_symp
                 )
                 
-    def render(self, base_freq, duration, args=None):
+    def render(self, heard_freq, duration, args=None):
+
+        base_freq = heard_freq / self.heard_to_base_freq_divisor
 
         if args is None: args = {}
         elif not isinstance(args, dict):
@@ -217,3 +222,13 @@ class SoundGenerator(object):
                         release=attr_dir.pop("R", None)
                     ) if attr_dir else None, oscillator
                 ))
+
+def _heard_to_base_freq_divisor (freq_factors):
+    total = 0
+    weights = 0
+    for c in freq_factors.iterate_coords():
+        sp = log_to_linear( c[1] )
+        total += c[0] * sp
+        weights += sp
+
+    return total / weights
