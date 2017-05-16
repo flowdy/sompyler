@@ -2,8 +2,7 @@
 
 from __future__ import division
 from math import sqrt
-from cpython cimport array
-import array
+from Sompyler.synthesizer.shape.bezier_gradient import plot_bezier_gradient
 import re
 import copy
 from operator import itemgetter
@@ -80,10 +79,6 @@ class Shape(object):
     def render (self, unit_length=1, y_scale=1, adj_length=False ):
         "Get samples according to the bezier curve"
 
-        coords = copy.deepcopy(self.coords)
-
-        cdef int length
-
         if adj_length and isinstance(adj_length, bool):
             unit_length *= y_scale
             coords = self.new_coords(y_scale=y_scale) 
@@ -95,16 +90,7 @@ class Shape(object):
 
         if not length: return []
 
-        approx = Shape._get_bezier_func(*coords)
-    
-        cdef float[:] results = array.array('f', [None]*(length+1))
-        results[0] = coords[0][1]
-        results[-1] = coords[-1][1]
-    
-        scan_bezier( approx, length, results, 0, .5, length )
-    
-        res = [x for x in results]
-        return res
+        return plot_bezier_gradient( length, *coords )
 
     def new_coords(self, adj_length=None, y_scale=None):
         """
@@ -207,40 +193,6 @@ class Shape(object):
     def edgy (self):
         return (self.coords[0][1], self.coords[-1][1])
 
-    _b_cache = {}
-    @staticmethod
-    def _get_bezier_func(*coords):
-    
-        def b(n,k):
-    
-            v = Shape._b_cache.get( (n,k) )
-            if v: return v
-    
-            if k == 0: v = 1
-    
-            elif 2*k > n:
-                v = b(n,n-k)
-    
-            else:
-                v = (n+1-k) / k * b(n,k-1)
-    
-            Shape._b_cache[ (n,k) ] = v
-            return v
-    
-        def B(x,n,k): return lambda t: b(n,k) * x * t**k * (1-t)**(n-k)
-    
-        xf, yf, cnum = [], [], len(coords)-1
-        for i, c in enumerate(coords):
-            xf.append( B(c[0], cnum, i) )
-            yf.append( B(c[1], cnum, i) )
-    
-        func = lambda t: (
-            sum( f(t) for f in xf ),
-            sum( f(t) for f in yf )
-        )
-
-        return func
-    
     @staticmethod
     def _distance (a, b):
         return sqrt( (b[1] - a[1])**2 + (b[0] - a[0])**2 )
@@ -345,26 +297,4 @@ class Shape(object):
     
         return new_coords
     
-cdef void scan_bezier(
-       object approx, int length, float[:] results,
-       float start, float pos, int max
-    ) except *:
-
-    cdef float t = start + pos
-    cdef float x, y
-    x, y = approx( t );
-    cdef int ix = int(x * length)
-    results[ ix ] = y
-    cdef float half_pos = pos / 2
-
-    if results[ ix-1 ] is None:
-        scan_bezier( approx, length, results, start, half_pos, ix-1 )
-    elif x == length or results[ ix+1 ] is not None:
-        return
-
-    if x < max:
-        scan_bezier( approx, length, results, start+pos, half_pos, max )
-
-    return
-
 
