@@ -7,8 +7,37 @@ import re
 import copy
 from operator import itemgetter
 
-class Shape(object):
+class Point(object):
+    __slots__ = ['x', 'y']
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
 
+    @staticmethod
+    def distance (a, b):
+        return sqrt( (b.y - a.y)**2 + (b.x - a.x)**2 )
+    
+    @classmethod
+    def weighted_average(cls, a, dist, b):
+
+        x = (dist - 1) * a.x + dist * b.x
+        y = (dist - 1) * a.y + dist * b.y
+
+        if isinstance(a, Point3D) and isinstance(b, Point3D):
+            env = a.env.weighted_average(a.env, dist, b.env)
+        else:
+            env = a.env if isinstance(a, Point3D) else \
+                  b.env if isinstance(b, Point3D) else None
+
+        if env:
+            return Point3D(x, y, env)
+        else:
+            return Point2D(x, y)
+
+class Point2D(Point): pass
+
+class Shape(object):
+    __slots__ = ['length', 'coords']
     def __init__(self, span, *coords):
 
         self.length = span[0]
@@ -17,7 +46,7 @@ class Shape(object):
         x_max = coords[-1][0]
         y_max = span[1] or max( i[1] for i in coords )
 
-        self.coords = [ (0, 1 if span[1] else 0 ) ]
+        self.coords = [ Point2D(0, 1 if span[1] else 0) ]
         x_last = 0
 
         for i in coords:
@@ -35,17 +64,25 @@ class Shape(object):
             if i[1] < 0:
                 raise Exception("y must not be less than 0")
             
-            self.coords.append( ( x, i[1] / y_max ) )
+            self.coords.append(
+                Point2D( x, i[1] / y_max ) if len(i) == 2
+                    else Point3D( x, i[1] / y_max, i[2] )
+            )
 
     def iterate_coords(self, offset=0):
         it = iter(self.coords)
         length = self.length
         for i in range(offset): next(it)
-        for i in it: yield (i[0] * length, i[1])
+        for i in it:
+            if isinstance(i, Point3D):
+                props = { "frequency": i.x * length, "max_volume": i.y, "envelope": i.env }
+            else:
+                props = { "position": i.x * length, "volume": i.y }
+            yield i
 
     def y_slice (self, offset, until, step):
         s = slice(offset, until, step)
-        return tuple( c[1] for c in self.coords[s] )
+        return tuple( c.y for c in self.coords[s] )
 
     @classmethod
     def from_string(cls, bezier):
@@ -119,8 +156,8 @@ class Shape(object):
             return coords
 
         if adj_length > 1:
-            pult_x = coords[-2][0]
-            pult_y, ult_y = (i[1] for i in coords[-2:])
+            pult_x = coords[-2].x
+            pult_y, ult_y = (i.y for i in coords[-2:])
             ult_rise = (ult_y - pult_y) / (1 - pult_x)
             fill_x = adj_length
             fill_y = ult_y + (fill_x - 1) * ult_rise
@@ -131,38 +168,38 @@ class Shape(object):
                 fill_x = -ult_y / ult_rise + 1
                 fill_y = 0
             del coords[-1]
-            coords.append(( fill_x, fill_y ))
-            if fill_x2: coords.append([ fill_x2, fill_y])
+            coords.append(Point( fill_x, fill_y ))
+            if fill_x2: coords.append(Point( fill_x2, fill_y ))
 
         elif adj_length and adj_length < 1:
             n = 0
             for i in coords:
-                if adj_length >= i[0]:
+                if adj_length >= i.x:
                    n += 1
                 else: break
             h = coords[n-1]
-            ult_rise = (i[1] - h[1]) / (i[0] - h[0])
+            ult_rise = (i.y - h.y) / (i.x - h.x)
             new_coord = ( adj_length,
-                h[1] + (adj_length - h[0]) * ult_rise if i[1] else 0
+                h.y + (adj_length - h.x) * ult_rise if i.y else 0
             )
             del coords[n:]
-            coords.append(new_coord)
+            coords.append(Point(*new_coord))
     
         # rescale x-dimension to new maximum, y-dimension to y_scale
-        x_max = max(c[0] for c in coords)
-        return [ (c[0] / x_max, c[1] * y_scale) for c in coords ]
+        x_max = max(c.x for c in coords)
+        return [ Point(c.x / x_max, c.y * y_scale) for c in coords ]
 
     @classmethod
     def weighted_average (cls, left, dist, right):
         """
-        Assuming a smooth transition to anright curve in a distance,
+        Assuming a smooth transition to a right curve in a distance,
         Shape.weighted_average(left_shape, distance, right_shape) returns an
         intermediate shape at a given position < 1 and > 0.
         """
 
         assert not ( dist < 0 or dist > 1 )
 
-        avg = lambda a, b: (1 - dist) * a + dist * b
+        def avg(a, b): return (1 - dist) * a + dist * b
 
         if left.length == right.length:
             adj_length = left.length
@@ -182,21 +219,17 @@ class Shape(object):
         coords = []
         for i in range( len(lcoords) ):
             coords.append((
-                avg( lcoords[i][0], rcoords[i][0] ),
-                avg( lcoords[i][1], rcoords[i][1] )
+                avg(lcoords[i].x, rcoords[i].x),
+                avg(lcoords[i].y, rcoords[i].y)
             ))
 
-        coords[0] = ( adj_length, coords[0][1] )
+        coords[0] = (adj_length, coords[0][1])
 
-        return Shape(*coords)
+        return Shape( *coords )
 
     def edgy (self):
-        return (self.coords[0][1], self.coords[-1][1])
+        return (self.coords[0].y, self.coords[-1].y)
 
-    @staticmethod
-    def _distance (a, b):
-        return sqrt( (b[1] - a[1])**2 + (b[0] - a[0])**2 )
-    
     def adjust_coords_num (self, num):
         """
         Adjust number of coordinates so two shapes have the same number and can
@@ -225,14 +258,13 @@ class Shape(object):
     def _lessen_coords (coords, by_num):
     
         def distance_c_to_ab(a, b, c):
-            n_ab = (b[1] - a[1]) / (b[0] - a[0])
-            if b[1] - a[1]:
-                # print "a: {},{}; b: {},{}; c: {},{}".format(a[0], a[1], b[0], b[1], c[0], c[1])
-                n_dc = (a[0] - b[0]) / (b[1] - a[1])
-                x = (c[1] - n_dc*c[0] - b[1] + n_ab*b[0]) / (n_ab - n_dc)
+            n_ab = (b.y - a.y) / (b.x - a.x)
+            if n_ab:
+                n_dc = (a.x - b.x) / (b.y - a.y)
+                x = (c.y - n_dc*c.x - b.y + n_ab*b.x) / (n_ab - n_dc)
             else: # work around division by zero
-                x = c[0]
-            return Shape._distance( (x, n_ab*(x - b[0]) + b[1]), c )
+                x = c.x
+            return Point.distance( Point(x, n_ab*(x - b.x) + b.y), c )
     
         distances = {}
         for i, a in enumerate(coords[:-2]):
@@ -259,7 +291,7 @@ class Shape(object):
         new_coords = [c_last]
     
         for c in coords[1:]:
-            distances[c] = Shape._distance(c_last, c)
+            distances[c] = Point.distance(c_last, c)
             c_last = c
     
         sum_dist = sum( d for d in distances.values() )
@@ -283,13 +315,13 @@ class Shape(object):
             inter_coords = distances[c]
             sum_coords += inter_coords
     
-            xlen = c[0] - coords[i][0]
+            xlen = c.x - coords[i].x
             interval = xlen / (inter_coords + 1)
     
             for step in range(inter_coords):
-                x = coords[i][0] + (step+1) * interval
-                y = (c[1] - coords[i][1]) / xlen * (x - c[0]) + c[1]
-                new_coords.append( (x, y) )
+                x = coords[i].x + (step+1) * interval
+                y = (c.y - coords[i].y) / xlen * (x - c.x) + c.y
+                new_coords.append( Point2D(x, y) )
     
             new_coords.append(c)
     
@@ -297,4 +329,13 @@ class Shape(object):
     
         return new_coords
     
+class Point3D(Point):
+      __slots__ = ['env']
+      def __init__(self, *args, **kwargs):
+          env = kwargs.pop('env')
+          if not env:
+              raise AttributeError("Missing an envelope for Point3D instance")
+          super(Point, self).__init__(*args, **kwargs)
+          self.env = env
+
 

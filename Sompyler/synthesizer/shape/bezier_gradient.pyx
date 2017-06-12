@@ -10,8 +10,8 @@ def plot_bezier_gradient( length, *coords ):
     approx = get_bezier_func(*coords)
 
     cdef double[:] results = array.array( 'd', [NOT_INITIALIZED]*length )
-    results[0] = coords[0][1]
-    results[-1] = coords[-1][1]
+    results[0] = coords[0].y
+    results[-1] = coords[-1].y
 
     scan_bezier( approx, length-1, results, 0, .5, length-1 )
 
@@ -60,10 +60,10 @@ def get_bezier_func(*coords):
 
     len_coords = len(coords) - 1
     cdef double[:] xb = array.array('d', [
-        c[0] * b(len_coords, i) for i, c in enumerate(coords)
+        c.x * b(len_coords, i) for i, c in enumerate(coords)
     ])
     cdef double[:] yb = array.array('d', [
-        c[1] * b(len_coords, i) for i, c in enumerate(coords)
+        c.y * b(len_coords, i) for i, c in enumerate(coords)
     ])
 
     return lambda t: (sum_polynom(xb, t), sum_polynom(yb, t))

@@ -64,15 +64,15 @@ class SoundGenerator(object):
                 nexti = 0
 
             else:
-                fdist = freq_factors[c][0] - freq_factors[lasti][0]
+                fdist = freq_factors[c].x - freq_factors[lasti].y
                 if not nexti:
                     nexti = next(
                         c+i+1 for (i, s) in enumerate( sympartials[c+1:] )
                             if s.envelope
                     )
                 fdist /= 1.0 * (
-                    ( freq_factors[nexti][0] if nexti else final_ff )
-                    - freq_factors[lasti][0]
+                    ( freq_factors[nexti].x if nexti else final_ff )
+                    - freq_factors[lasti].x
                 )
                 sympartials[c] = Sympartial.weighted_average(
                     sympartials[lasti], fdist,
@@ -110,8 +110,7 @@ class SoundGenerator(object):
         next(sympit) # skip None
         ff = self.freq_factors.iterate_coords(1)
         for (p, symp) in izip(ff, sympit):
-            f, share = p
-            yield (f, share, symp)
+            yield (p.x, p.y, symp)
 
     def derive(self):
         osc = {}
@@ -227,8 +226,8 @@ def _heard_to_base_freq_divisor (freq_factors):
     total = 0
     weights = 0
     for c in freq_factors.iterate_coords():
-        sp = log_to_linear( c[1] )
-        total += c[0] * sp
+        sp = log_to_linear( c.y )
+        total += c.x * sp
         weights += sp
 
     return total / weights

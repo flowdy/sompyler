@@ -1,11 +1,9 @@
 from Sompyler.synthesizer.envelope import Envelope
 import matplotlib.pyplot as plt
 import sys
-import pdb
 
 curves = []
 def render_curve (e):
-    pdb.set_trace()
     res = e.render(float(sys.argv[-1]))
     curves.append(range(len(res)))
     curves.append(res)
