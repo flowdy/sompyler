@@ -2,17 +2,25 @@
 
 from __future__ import division
 import numpy as np
-from Sompyler.synthesizer import BYTES_PER_CHANNEL
+import re
+from Sompyler.synthesizer import BYTES_PER_CHANNEL, SAMPLING_RATE
 from Sompyler.synthesizer.modulation import Modulation
 from Sompyler.synthesizer.shape import Shape
+from collections import deque
 
 class Oscillator:
 
     def __init__( self, **args):
 
+        self.osc_func = args.get('osc_func', _sine_wave)
+
         for attr in 'amplitude_modulation', 'frequency_modulation':
             if args.get(attr):
-                mod = Modulation.from_string( args[attr], args['oscache'] )
+                mod = (args[attr] if isinstance(args[attr], Modulation)
+                       else Modulation.from_string( args[attr] , args['pp_registry'],
+                           self.osc_func
+                       )
+                     )
             else: mod = None
             setattr(self, attr, mod)
 
@@ -37,19 +45,19 @@ class Oscillator:
         self, freq, iseq, phase=0, shaped_fm=None
     ):
 
-        assert freq < 1 # freq must be passed as quotient: ?Hz/fps
-
         if isinstance(iseq, int):
             iseq = np.arange(iseq)
         else: assert isinstance(iseq, np.ndarray)
 
         if self.frequency_modulation:
-            iseq = np.cumsum(self.frequency_modulation.modulate(iseq, freq))
+            iseq = np.cumsum(
+                self.frequency_modulation.modulate(iseq, freq)
+            )
             if shaped_fm: iseq *= shaped_fm
         elif shaped_fm:
             iseq = np.cumsum( shaped_fm )
 
-        wave = np.sin( 2*np.pi * iseq * freq + phase )
+        wave = self.osc_func( iseq, freq, phase )
 
         if self.wave_shaper: wave = self.wave_shaper(wave)
 
@@ -61,6 +69,7 @@ class Oscillator:
     def derive (self, **args):
 
         for i in 'amplitude_modulation', 'frequency_modulation', 'wave_shape':
+            if args.get(i): continue
             mine = getattr(self, i)
             if mine:
                 args[i] = mine
@@ -77,20 +86,187 @@ class Oscillator:
             r = getattr(right, each)
             if not ( l or r ):
                 continue
-            elif not l:
+            elif not l or l is r:
                 args[each] = r
             elif not r:
                 args[each] = l
             else:
-                args[each] = getattr(left, each).weighted_average( l, dist, r )
+                args[each] = l.weighted_average( l, dist, r )
 
         l = getattr(left, 'wave_shape')
         r = getattr(right, 'wave_shape')
         if l and r:
-            args['wave_shape'] = l.weighted_average( l, dist, r)
+            args['wave_shape'] = l if l is r else l.weighted_average( l, dist, r)
         elif l or r:
             s = Shape("1:0;1,1")
             args['wave_shape'] = Shape.weighted_average( l or s, dist, r or s )
 
+        if left.osc_func is right.osc_func:
+            args['osc_func'] = left.osc_func
+        else:
+            args['osc_func'] = lambda l, f, p: (
+                (1 - dist) * left.osc_func(l,f,p) + dist * right.osc_func(l,f,p)
+            )
+
         return cls(**args)
-    
+
+
+def CORE_PRIMITIVE_OSCILLATORS (**osc_args):
+
+    core_oscs = {
+        'sine': _sine_wave,
+        'sawtooth': _sawtooth_wave,
+        'square': _square_wave,
+    }
+
+    if 'pp_registry' not in osc_args:
+        osc_args['pp_registry'] = {}
+
+    for (name, func) in core_oscs.items():
+        osc_args[ 'osc_func' ] = func
+        core_oscs[name] = Oscillator( **osc_args )
+
+    core_oscs[ ('noise',) ] = noise_generator_factory
+
+    return core_oscs
+
+
+def _sine_wave(iseq, freq, phase):
+    return np.sin(
+        2*np.pi * iseq * freq / SAMPLING_RATE + phase
+    )
+def _sawtooth_wave(iseq, freq, phase):
+    x = iseq * freq / SAMPLING_RATE + phase
+    return 2 * (x - np.floor(x)) - 1
+
+def _square_wave(iseq, freq, phase):
+    x = iseq * freq / SAMPLING_RATE + phase
+    return 2 * (np.floor(x) - np.round(x)) + 1
+
+
+
+def noise_generator_factory(noise_spec):
+
+    m = re.match(r'L(\d+)R(\d+)S(\d+)', noise_spec)
+
+    if not m:
+        raise RuntimeError(
+            "noise specification malformed: must be LnnRnnSnn, but is "
+          + noise_spec
+        )
+
+    return lambda iseq, freq: _noise_generator( iseq, freq,
+        last_sample_weight = int(m.group(1)),
+        rebalance_weight   = int(m.group(2)),
+        sample_weight      = int(m.group(3)),
+    )
+
+
+_RANDOMS_1SEC = np.random.random_sample(SAMPLING_RATE)
+
+def _noise_generator(
+    iseq, freq, phase=None,
+    rebalance_weight=1, sample_weight=1, last_sample_weight=1
+    ):
+    """ This noise generator is dynamic in that it respects the
+        frequency. The phase is ignored.
+    """
+    raw_random_iter = np.nditer(_RANDOMS_1SEC)
+
+    def getfreq_rnd():
+        seq_iter = np.nditer(iseq)
+        count = -1
+        for i in seq_iter:
+            try:
+                rnd = next(raw_random_iter)
+            except StopIteration:
+                raw_random_iter.reset()
+                rnd = next(raw_random_iter)
+            yield ((i - count) * freq, rnd * 2 - 1)
+            count = i
+
+    # def __legacy_rnd_samples():
+
+    #     last_sample = 0
+
+    #     count = 0
+
+    #     for (freq, sample) in getfreq_rnd():
+    #     
+    #         window_size = -2.0 * freq / SAMPLING_RATE + 1
+
+    #         if window_size > 1:
+    #             window_size = 1.0
+    #             inv = False
+    #         elif window_size < 0:
+    #             window_size *= -1
+    #             inv = True
+    #         else:
+    #             inv = False
+
+    #         window_size = 1 - window_size
+    #         lower_bound = last_sample - window_size / 2
+    #         upper_bound = lower_bound + window_size
+    #     
+    #         if lower_bound < -1:
+    #             upper_bound -= lower_bound + 1
+    #             lower_bound = -1
+    #         elif upper_bound > 1:
+    #             lower_bound -= upper_bound - 1
+    #             upper_bound = 1
+    #     
+    #         if inv:
+    #             lower_bound, upper_bound = (upper_bound * -1.0, lower_bound * -1.0)
+
+    #         cmp_bound = lower_bound if sample < 0 else upper_bound
+    #         next_sample = (
+    #             NOISE_BOUND_WEIGHT * cmp_bound + sample
+    #         ) / (NOISE_BOUND_WEIGHT + 1)
+    #         
+    #         count += 1;
+    #         if True: # new_sample > 1:
+    #             print '%06d. L%+.5f W%+.5f (%+.5f in %+.5f-%+.5f) => %+.5f' % (
+    #                 count, last_sample, window_size, sample, lower_bound, upper_bound, next_sample
+    #             )
+
+    #         yield next_sample
+
+    #         last_sample = next_sample
+
+    def rnd_samples():
+
+        last_sample = 0
+
+        posw = 1; negw = 1; recent_samples = deque()
+
+        for (freq, sample) in getfreq_rnd():
+
+            half_period_length = SAMPLING_RATE * 1.0 / (2*freq)
+
+            earlier_sample = 0
+
+            while len(recent_samples) > half_period_length:
+                earlier_sample = recent_samples.popleft()
+                if earlier_sample > 0:
+                    posw -= earlier_sample
+                else:
+                    negw += earlier_sample
+
+            rebalance_pos = 1 - negw/posw if posw > negw else negw/posw - 1
+
+            next_sample = ( sample * sample_weight
+                          + rebalance_pos * rebalance_weight
+                          + (last_sample or sample) * last_sample_weight
+                          ) / (sample_weight + rebalance_weight + last_sample_weight)
+
+            yield next_sample
+
+            last_sample = next_sample
+
+            recent_samples.append(next_sample)
+            if next_sample > 0:
+                posw += next_sample
+            else:
+                negw -= next_sample
+
+    return np.fromiter(rnd_samples(), np.float32, iseq.size)
