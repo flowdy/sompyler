@@ -18,9 +18,11 @@ class Envelope(object):
     error, that the user wishes so unlikely. To make sympartial specification
     less error-prone, this is checked and an exception is thrown.
 
+    A boost shape is needed to level up a sustain ending in a volume too low.
+
     """
 
-    def __init__(self, attack, sustain=None, release=None):
+    def __init__(self, attack, sustain=None, boost=None, release=None):
         self.attack = (
             attack if isinstance(attack, Shape)
                   else Shape.from_string(attack)
@@ -45,24 +47,42 @@ class Envelope(object):
         if initial_y:
             raise Exception("Attack does not start at 0dB")
 
-        if ( self.sustain is None
-         and self.release   is None
-         and not final_y == 0
-        ):
-           raise Exception(
-               "Attack not finalized despite lacking sustain and release: "
-              +"Last coordinate must be y=0, but is really {}".format(final_y)
-           )
-        elif not final_y:
-           raise Exception(
-               "Attack finalized (ends at 0dB) but no sustain or release phase"
-              +" is defined"
-           )
-        elif not self.release or self.release.edgy()[1]:
-           raise Exception(
-              "Release phase not defined or does not end at 0dB"
-           )
+        if final_y:
+            if not self.release:
+                raise Exception("Attack not finalized, neither is a "
+                      + "release phase defined"
+                    )
 
+            if self.release.edgy()[1]:
+                raise Exception("Release phase does not end at 0dB")
+
+        elif ( self.sustain or self.release ):
+            raise Exception(
+                "Sustain and release defined after finalized attack"
+            )
+
+        if boost:
+            if not (self.sustain and self.release):
+                raise Exception(
+                    "boost connects sustain and release phases which is "
+                  + "requires both to be defined"
+                )
+            self.boost = (
+                boost if isinstance(boost, Shape)
+                      else Shape.from_string(boost)
+            )
+            boost.rescale_y( attack.y_max )
+
+    def derive ( **args ):
+
+        for i in 'attack', 'sustain', 'release', 'boost':
+            if args.get(i):
+                continue
+            mine = getattr(self, i, None)
+            if mine:
+                args[i] = mine
+
+        self.__class__( **args )
 
     CONSTANT_SUSTAIN = Shape((0,1), (1,1))
 
@@ -84,7 +104,8 @@ class Envelope(object):
             sustain.render(
                 SAMPLING_RATE,
                 y_scale=results[-1],
-                adj_length=fill
+                adj_length=fill,
+                final_boost=self.boost
             )
         )
     
@@ -109,9 +130,9 @@ class Envelope(object):
             lattr = getattr(left, p)
             rattr = getattr(right, p)
 
-            if lattr and rattr:
+            if lattr and rattr and lattr is not rattr:
                 phases[p] = Shape.weighted_average( lattr, dist, rattr )
-            elif lattr or rattr:
+            else:
                 phases[p] = lattr or rattr
 
         return cls( **phases )

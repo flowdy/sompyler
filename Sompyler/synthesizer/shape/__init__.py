@@ -1,52 +1,28 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import division
-from math import sqrt
 from Sompyler.synthesizer.shape.bezier_gradient import plot_bezier_gradient
+from Sompyler.synthesizer.shape.point import Point, Point2D, Point3D
 import re
 import copy
 from operator import itemgetter
 
-class Point(object):
-    __slots__ = ['x', 'y']
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-    @staticmethod
-    def distance (a, b):
-        return sqrt( (b.y - a.y)**2 + (b.x - a.x)**2 )
-    
-    @classmethod
-    def weighted_average(cls, a, dist, b):
-
-        x = (dist - 1) * a.x + dist * b.x
-        y = (dist - 1) * a.y + dist * b.y
-
-        if isinstance(a, Point3D) and isinstance(b, Point3D):
-            env = a.env.weighted_average(a.env, dist, b.env)
-        else:
-            env = a.env if isinstance(a, Point3D) else \
-                  b.env if isinstance(b, Point3D) else None
-
-        if env:
-            return Point3D(x, y, env)
-        else:
-            return Point2D(x, y)
-
-class Point2D(Point): pass
-
 class Shape(object):
-    __slots__ = ['length', 'coords']
+    __slots__ = ['length', 'coords', 'y_max']
     def __init__(self, span, *coords):
 
         self.length = span[0]
+
+        if not next(i for i in coords if not isinstance(i, Point)):
+            self.coords = coords
+            return
 
         # scale x to tune length, y to 1
         x_max = coords[-1][0]
         y_max = span[1] or max( i[1] for i in coords )
 
         self.coords = [ Point2D(0, 1 if span[1] else 0) ]
+        self.y_max = y_max
         x_last = 0
 
         for i in coords:
@@ -56,14 +32,14 @@ class Shape(object):
                         x_last, i[0], coords
                     )
                 )
-    
+
             x_last = i[0]
-    
+
             x = i[0] / x_max
-    
+
             if i[1] < 0:
                 raise Exception("y must not be less than 0")
-            
+
             self.coords.append(
                 Point2D( x, i[1] / y_max ) if len(i) == 2
                     else Point3D( x, i[1] / y_max, i[2] )
@@ -84,6 +60,12 @@ class Shape(object):
         s = slice(offset, until, step)
         return tuple( c.y for c in self.coords[s] )
 
+    def rescale_y (self, other_y_max):
+        adj_y = self.y_max / other_y_max
+        for i in self.coords:
+            i.y *= adj_y
+        self.y_max = other_y_max
+
     @classmethod
     def from_string(cls, bezier):
         """
@@ -92,8 +74,9 @@ class Shape(object):
         Define the attack, sustain or release shape of the envelope as a bezier
         curve, that is, the coordinates of its outer polygon.
 
-        length - the duration of the part of the envelope, in seconds
-        y0 - the y value of point at x=0. Default is 0.
+        Attributes:
+          * length - the duration of the part of the envelope, in seconds
+          * y0 - the y value of point at x=0. Default is 0.
         """
 
         if ':' in bezier:
@@ -112,8 +95,8 @@ class Shape(object):
             coords.append([ int(n) for n in m.split(",", 1) ])
 
         return cls(*coords)
-    
-    def render (self, unit_length=1, y_scale=1, adj_length=False ):
+
+    def render (self, unit_length=1, y_scale=1, adj_length=False, final_boost=None ):
         "Get samples according to the bezier curve"
 
         if adj_length and isinstance(adj_length, bool):
@@ -127,11 +110,14 @@ class Shape(object):
 
         if not length: return []
 
+        if final_boost and (float(final_boost.y_max) / self.y_max) > coords[-1].y:
+            Shape.add_final_boost( final_boost, coords, length )
+
         return plot_bezier_gradient( length, *coords )
 
-    def new_coords(self, adj_length=None, y_scale=None):
+    def new_coords(self, adj_length=None, y_scale=1, reverse=False):
         """
-        Return new, independent coordinate tuples that span original length
+        Return new, independent coordinate points that span original length
         or a specified one.
 
         If specified length is less than the original, coordinates are ignored
@@ -143,17 +129,16 @@ class Shape(object):
         negative values are not allowed.
         """
 
-        if y_scale is None:
-            y_scale = 1
-
-        coords = copy.deepcopy(self.coords)
-
         if adj_length:
             if adj_length < 0:
                 raise Exception("Negative shape length")
             adj_length /= self.length 
         elif y_scale == 1:
-            return coords
+            coords = self.coords
+            if reverse: return reversed(coords)
+            else: return coords
+
+        coords = self.coords[:]
 
         if adj_length > 1:
             pult_x = coords[-2].x
@@ -167,9 +152,11 @@ class Shape(object):
                 fill_x2 = fill_x
                 fill_x = -ult_y / ult_rise + 1
                 fill_y = 0
-            del coords[-1]
-            coords.append(Point( fill_x, fill_y ))
-            if fill_x2: coords.append(Point( fill_x2, fill_y ))
+            replaced = coords.pop(-1)
+            coords.append(replaced.new_alike( fill_x, fill_y ))
+            if fill_x2: coords.append(
+                replaced.new_alike( fill_x2, fill_y )
+            )
 
         elif adj_length and adj_length < 1:
             n = 0
@@ -178,16 +165,70 @@ class Shape(object):
                    n += 1
                 else: break
             h = coords[n-1]
-            ult_rise = (i.y - h.y) / (i.x - h.x)
-            new_coord = ( adj_length,
-                h.y + (adj_length - h.x) * ult_rise if i.y else 0
+            new_coord = Point.weighted_average(
+                h, (adj_length - h.x) / (i.x - h.x), i
             )
             del coords[n:]
-            coords.append(Point(*new_coord))
-    
+            coords.append(new_coord)
+
         # rescale x-dimension to new maximum, y-dimension to y_scale
-        x_max = max(c.x for c in coords)
-        return [ Point(c.x / x_max, c.y * y_scale) for c in coords ]
+        x_max = coords[-1].x
+        return [ c.new_alike(c.x / x_max, c.y * y_scale) for c in coords ]
+
+    @staticmethod
+    def add_final_boost( boost_shape, coords, length ):
+
+        boost_x_offset = length - boost_shape.length
+
+        if boost_x_offset < 0: # we cut boost short from the front
+           boost_coords = boost_shape.new_coords(length, reverse=True)
+           boost_shape = Shape(
+               (length, 0), *reversed(boost_coords)
+           )
+           boost_x_offset = 0
+
+        def line_segment_progressor(shape, x_offset=None):
+            old = ( coords[0] if x_offset is None
+                    else coords[0].new_alike( coords[0].x + x_offset )
+                  )
+            for i in coords[1:]:
+                if x_offset:
+                    i = i.new_alike(i.x + x_offset)
+                yield (old, i)
+                old = i
+                offset = offset + 1
+
+        progress_self  = line_segment_progressor(self)
+        progress_boost = line_segment_progressor(boost_shape, boost_x_offset)
+
+        is_flags = 0
+        take_sustain = []
+        while not is_flags == 3:
+
+            if not is_flags & 2:
+                s_begin, s_end = progress_sustain()
+                take_sustain.append(s_begin)
+            if not is_flags & 1:
+                b_begin, b_end = progress_boost()
+
+            is_flags = 0 # intersection
+            if s_end.x >= b_end_x: is_flags = is_flags | 2
+            if s_end.y >= b_end.y: is_flags = is_flags | 1
+
+        x = ( b_begin.y - s_begin.y ) / (
+                ( s_end.y - s_begin.y ) / ( s_end.x - s_begin.x )
+              - ( b_end.y - b_begin.y ) / ( b_end_x - b_begin_x )
+            )
+        s_intersect = Point.weighted_average(
+            s_begin, (x - s_begin.x) / (s_end.x - s_begin.x), s_end
+        )
+        take_sustain.append(s_intersect)
+        take_sustain.append(b_end)
+        for i in progress_boost:
+            p = i[1].new_alike( i[1].x + boost_x_offset )
+            take_sustain.append(p)
+
+        return take_sustain
 
     @classmethod
     def weighted_average (cls, left, dist, right):
@@ -205,7 +246,7 @@ class Shape(object):
             adj_length = left.length
         else:
             adj_length = avg( left.length, right.length )
-        
+
         lcoords = left.new_coords(adj_length)
         rcoords = right.new_coords(adj_length)
 
@@ -218,14 +259,9 @@ class Shape(object):
 
         coords = []
         for i in range( len(lcoords) ):
-            coords.append((
-                avg(lcoords[i].x, rcoords[i].x),
-                avg(lcoords[i].y, rcoords[i].y)
-            ))
+            coords.append(Point.weighted_average( lcoords[i], dist, rcoords[i] ))
 
-        coords[0] = (adj_length, coords[0][1])
-
-        return Shape( *coords )
+        return Shape( (adj_length, coords[0].y), *coords )
 
     def edgy (self):
         return (self.coords[0].y, self.coords[-1].y)
@@ -256,7 +292,7 @@ class Shape(object):
 
     @staticmethod
     def _lessen_coords (coords, by_num):
-    
+
         def distance_c_to_ab(a, b, c):
             n_ab = (b.y - a.y) / (b.x - a.x)
             if n_ab:
@@ -265,18 +301,18 @@ class Shape(object):
             else: # work around division by zero
                 x = c.x
             return Point.distance( Point(x, n_ab*(x - b.x) + b.y), c )
-    
+
         distances = {}
         for i, a in enumerate(coords[:-2]):
             c = coords[i+1]
             b = coords[i+2]
             distances[c] = distance_c_to_ab(a, b, c)
-    
+
         kept_dist = sorted(distances.items(), key=itemgetter(1))[by_num:]
         kept_dist.append( (coords[0], 1) )
         kept_dist.append( (coords[-1], 1) )
         distances = dict( kept_dist )
-    
+
         return [ c for c in coords if distances.get(c) ]
 
     def raise_coords (self, by_num):
@@ -284,16 +320,16 @@ class Shape(object):
 
     @staticmethod
     def _raise_coords (coords, by_num):
-    
+
         distances = {}
         c_last = coords[0]
-    
+
         new_coords = [c_last]
-    
+
         for c in coords[1:]:
             distances[c] = Point.distance(c_last, c)
             c_last = c
-    
+
         sum_dist = sum( d for d in distances.values() )
 
         remainders = []
@@ -314,28 +350,18 @@ class Shape(object):
         for i, c in enumerate(coords[1:]):
             inter_coords = distances[c]
             sum_coords += inter_coords
-    
+
             xlen = c.x - coords[i].x
             interval = xlen / (inter_coords + 1)
-    
+
             for step in range(inter_coords):
                 x = coords[i].x + (step+1) * interval
                 y = (c.y - coords[i].y) / xlen * (x - c.x) + c.y
                 new_coords.append( Point2D(x, y) )
-    
-            new_coords.append(c)
-    
-        assert sum_coords == by_num
-    
-        return new_coords
-    
-class Point3D(Point):
-      __slots__ = ['env']
-      def __init__(self, *args, **kwargs):
-          env = kwargs.pop('env')
-          if not env:
-              raise AttributeError("Missing an envelope for Point3D instance")
-          super(Point, self).__init__(*args, **kwargs)
-          self.env = env
 
+            new_coords.append(c)
+
+        assert sum_coords == by_num
+
+        return new_coords
 
