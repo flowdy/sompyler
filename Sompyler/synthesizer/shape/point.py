@@ -23,13 +23,19 @@ class Point(object):
             symp = a.symp if isinstance(a, Point3D) else \
                    b.symp if isinstance(b, Point3D) else None
 
-        if env:
+        if symp:
             return Point3D(x, y, symp=symp)
         else:
             return Point2D(x, y)
 
     def new_alike(self, x, y):
         return self.__class__(x, y)
+
+    def __getitem__(self, n):
+        if n > 1: return IndexError
+        return self.y if n else self.x
+
+    def __len__(self): return 2
 
 class Point2D(Point): pass
 
@@ -45,3 +51,7 @@ class Point3D(Point):
       def new_alike(self, x, y, symp):
           return self.__class__(x, y, symp=symp)
 
+      def __getitem__(self, n):
+          return self.symp if n == 2 else Point.__getitem__(self, n)
+
+      def __len__(self): return 3

@@ -10,7 +10,7 @@ import re
 
 class SoundGenerator(Shape):
     __slots__ = ['heard_to_base_freq_divisor']
-    def __new__(cls, initial, the_list, term):
+    def __new__(cls, initial, the_list, term, heard_to_base_freq_divisor=1):
     
         tmp = []
     
@@ -24,35 +24,45 @@ class SoundGenerator(Shape):
     
         mylist.append(( int(mylist[-1])+1.0, 0, term ))
     
-        last_freq = None
+        last_freq = 0
         last_symp = None
     
         for i1, v in enumerate(mylist):
     
-            if v is None:
+            if len(v) == 2:
+                freq0, volume = v
+                symp = None
+            else:
+                freq0, volume, symp = v
+
+            if symp is None:
                 tmp.append(i1)
                 continue
 
-            freq0, volume, symp = parse_sympartial(v)
-            coords.append( (freq0, volume, symp) )
-    
             for tv in tmp:
-                freq, volume, _ = mylist[tv]
+                freq, volume = mylist[tv][0,1]
                 left = freq - last_freq
                 right = freq0 - freq
                 dist = left / (left + right)
                 mylist[tv] = (
                     freq, volume,
-                    Envelope.weighted_average(last_env, dist, env)
+                    Sympartial.weighted_average(last_symp, dist, symp)
                 )
     
             tmp = []
             last_freq = freq
             last_symp = symp
     
-        self = super(SoundGenerator, cls).__new__(cls, *coords)
-        self.heard_to_base_freq_divisor = _heard_to_base_freq_divisor(coords)
-        self.sympartial_registry = copy(sympartial_registry) if sympartial_registry else {}
+        self = super(SoundGenerator, cls)(cls, (mylist[-1][0], 0), *mylist)
+
+        # TODO: more research and experimenting on that one. It is questionable that we can
+        # calculate that so everyone hears the same pitch. For the time being, you can set
+        # it manually if you want.
+        # Numb weighted average makes tones too low to my ears:
+        #   _heard_to_base_freq_divisor(coords)
+        self.heard_to_base_freq_divisor = heard_to_base_freq_divisor 
+
+        return self
 
     def render(self, heard_freq, duration, args=None):
 
@@ -69,8 +79,8 @@ class SoundGenerator(Shape):
         total_share = 0
 
         for s in sympit:
-            sympres = s['symp'].render(
-                base_freq * s['freq_factor'], s['volume'], duration, args
+            sympres = s.symp.render(
+                base_freq * s.x, s.y, duration, args
             )
             len1 = len(samples)
             len2 = len(sympres)

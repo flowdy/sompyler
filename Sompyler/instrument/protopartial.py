@@ -57,9 +57,10 @@ class ProtoPartial(object):
                 value = Modulation.from_string(value, pp_registry)
             setattr(self, '_' + prop, value)
 
-    for i in ABBREV_ARGS: exec """
-        {0} = property(lambda (self, obj): obj.lookup_attr("{0}"), None, None)
-    """.format(i)
+    for i in ABBREV_ARGS:
+        exec ('{0} = property(lambda (self, obj):'
+            +' obj.lookup_attr("{0}"), None, None)'
+        ).format(i)
 
     def _lookup_attr (self, attr):
         """ Look up attribute first in own attributes, then in the ancestry
@@ -99,6 +100,6 @@ class ProtoPartial(object):
 
         return Sympartial(
             Envelope(**envelope_args), 
-            self.O().derive(**oscillator_args)
+            self.O().derive(**osc_args)
         )
         

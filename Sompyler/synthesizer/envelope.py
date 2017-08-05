@@ -72,6 +72,8 @@ class Envelope(object):
                       else Shape.from_string(boost)
             )
             boost.rescale_y( attack.y_max )
+        
+        else: self.boost = None
 
     def derive ( **args ):
 

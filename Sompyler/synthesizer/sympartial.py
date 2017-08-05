@@ -8,33 +8,6 @@ import numpy as np
 import re
 import copy
 
-ABBREV_ARGS = {
-    'A': 'attack',
-    'S': "sustain",
-    'B': "boost",
-    'R': "release",
-    'AM': "amplitude_modulation",
-    'FM': "frequency_modulation",
-    'WS': "wave_shape",
-}
-
-ENV_ARGS = ('A', 'S', 'B', 'R')
-OSC_ARGS = ('AM', 'FM', 'WS')
-
-def _gather_args (args):
-
-    env_args = {}; osc_args = {}
-
-    for i in ENV_ARGS:
-         val = args.get(i)
-         if val: env_args[ ABBREV_ARGS[i] ] = val
-
-    for i in OSC_ARGS:
-         val = args.get(i)
-         if val: osc_args[ ABBREV_ARGS[i] ] = val
-
-    return (env_args, osc_args)
-
 class Sympartial(object):
     """
     A Sympartial is a partial that may be accompanied by dependent partials
@@ -45,25 +18,6 @@ class Sympartial(object):
     def __init__( self, envelope, oscillator ):
         self.envelope = envelope
         self.oscillator = oscillator
-
-    @classmethod
-    def from_props ( cls, symp_registry={}, **args ):
-        envelope_args, oscillator_args = _gather_args(args)
-
-        osc_args['symp_registry'] = symp_registry
-        osc = args['O']
-        if osc:
-            oscillator = symp_registry[osc].oscillator
-            oscillator = (
-                oscillator.derive(**oscillator_args)
-                    if oscillator_args else oscillator
-            )
-        else:
-            oscillator = Oscillator(**oscillator_args)
-
-        return cls( Envelope(**envelope_args), 
-                    oscillator
-               )
 
     def render(self, freq, share, duration, args):
 

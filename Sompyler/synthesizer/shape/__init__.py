@@ -13,13 +13,12 @@ class Shape(object):
 
         self.length = span[0]
 
-        if not next(i for i in coords if not isinstance(i, Point)):
-            self.coords = coords
-            return
-
         # scale x to tune length, y to 1
         x_max = coords[-1][0]
-        y_max = span[1] or max( i[1] for i in coords )
+        y_max = (span[1] or max( i[1] for i in coords ))
+
+        if not y_max:
+            raise RuntimeError("y_max cannot not be 0 [" + repr(coords) + "]")
 
         self.coords = [ Point2D(0, 1 if span[1] else 0) ]
         self.y_max = y_max
@@ -365,3 +364,25 @@ class Shape(object):
 
         return new_coords
 
+    def derive ( self, other ):
+
+        coords = []
+        old_coords = iter(self.coords)
+        new_coords = iter(other.coords)
+        i = next(new_coords)
+        j = next(old_coords)
+
+        while True:
+            if j.x > i.x:
+                coords.append(i)
+                i = next(new_coords, None)
+                if i is None: break
+            else:
+                coords.append(j)
+                j = next(old_coords, None)
+                if j is None: break
+
+        coords.extend( [x for x in old_coords] )
+        coords.extend( [x for x in new_coords] )
+
+        return Shape( self.lengh, *coords )
