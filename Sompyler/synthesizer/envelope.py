@@ -36,11 +36,15 @@ class Envelope(object):
             sust_penult_y, sust_ult_y = self.sustain.y_slice(-2, None, None)
             if sust_penult_y < sust_ult_y:
                 raise Exception("Last two coords may not rise")
+        else:
+            self.sustain = None
 
         if release: self.release = (
             release if isinstance(release, Shape)
                     else Shape.from_string(release)
         )
+        else:
+            self.release = None
 
         initial_y, final_y = self.attack.edgy()
 
@@ -127,7 +131,7 @@ class Envelope(object):
 
         phases = {}
 
-        for p in 'attack', 'sustain', 'release':
+        for p in 'attack', 'sustain', 'boost', 'release':
 
             lattr = getattr(left, p)
             rattr = getattr(right, p)
@@ -136,6 +140,8 @@ class Envelope(object):
                 phases[p] = Shape.weighted_average( lattr, dist, rattr )
             else:
                 phases[p] = lattr or rattr
+
+        (phases['release'] or phases['attack']).coords[-1].y = 0
 
         return cls( **phases )
 

@@ -3,7 +3,7 @@
 from __future__ import division
 from Sompyler.synthesizer.sympartial import Sympartial
 from Sompyler.synthesizer.modulation import Modulation
-from Sompyler.synthesizer.envelope import Shape
+from Sompyler.synthesizer.envelope import Envelope, Shape
 import re
 
 ABBREV_ARGS = {
@@ -14,6 +14,7 @@ ABBREV_ARGS = {
     'AM': "amplitude_modulation",
     'FM': "frequency_modulation",
     'WS': "wave_shape",
+    'O': "oscillator" # value merely informational (not used)
 }
 
 ENV_ARGS = ('A', 'S', 'B', 'R')
@@ -24,10 +25,12 @@ MODS = ('AM', 'FM')
 
 class ProtoPartial(object):
     """
-    Manage all properties 
+    Manage all properties. Inherit them top-down from base of the variation
+    or from the protopartial labelled the same from an upper variation, and get
+    a sympartial instance which you can render tones with.
     """
 
-    __slots__ = ('_base', '_upper', '_cache',) + tuple(
+    __slots__ = ('_base', '_upper', '_cache') + tuple(
         '_' + i for i in ABBREV_ARGS
     )
 
@@ -36,33 +39,31 @@ class ProtoPartial(object):
         self._upper = upper
         self._cache = {}
 
-        osc = args.pop('O')
-        if osc:
-            self._O = pp_registry[osc].O
-        if self._O is None:
-            raise Exception("ProtoPartial instance missing oscillator")
-
         for prop in ABBREV_ARGS.keys():
             value = args.get(prop)
             if value is None:
-                setattr(self, prop, None)
+                setattr(self, '_' + prop, None)
                 continue
+            elif prop == "O":
+                if isinstance(value, str):
+                    pp = pp_registry['LOOK_UP'](value)
+                    value = pp.get('O')
             elif value.startswith('@'):
-                value = getattr( pp_registry[value[1:]], prop)()
-            if prop not in ABBREV_ARGS:
-                raise AttributeError
+                value = value[1:]
+                pp = pp_registry.get( value )
+                if pp is None:
+                    pp = pp_registry['LOOK_UP'](value)
+                value = pp.get(prop)
             if prop in SHAPES:
                 value = Shape.from_string(value)
             elif prop in MODS:
                 value = Modulation.from_string(value, pp_registry)
             setattr(self, '_' + prop, value)
 
-    for i in ABBREV_ARGS:
-        exec ('{0} = property(lambda (self, obj):'
-            +' obj.lookup_attr("{0}"), None, None)'
-        ).format(i)
+        if self._O is None:
+            raise Exception("ProtoPartial instance missing oscillator")
 
-    def _lookup_attr (self, attr):
+    def get (self, attr):
         """ Look up attribute first in own attributes, then in the ancestry
             of named variation. If it is not found there, try the base and its ancestry.
         """
@@ -71,7 +72,7 @@ class ProtoPartial(object):
 
         if value is not None:
             return value
-        elif self._cache.has(attr):
+        elif attr in self._cache:
             return self.cache[attr]
 
         for m in (self._upper, self._base):
@@ -80,7 +81,7 @@ class ProtoPartial(object):
             privm = '_' + attr
             value = (
                 getattr(m, privm) if hasattr(m, privm)
-                                else m._lookup_attr(attr)
+                                else m.get(attr)
             )
             if value is not None:
                 self._cache[attr] = value
@@ -91,15 +92,15 @@ class ProtoPartial(object):
         env_args = {}; osc_args = {}
 
         for each in ENV_ARGS:
-             val = getattr(self, each)()
-             if val: env_args[ ABBREV_ARGS[i] ] = val
+             val = self.get(each)
+             if val: env_args[ ABBREV_ARGS[each] ] = val
 
-        for i in OSC_ARGS:
-             val = getattr(self, each)()
-             if val: osc_args[ ABBREV_ARGS[i] ] = val
+        for each in OSC_ARGS:
+             val = self.get(each)
+             if val: osc_args[ ABBREV_ARGS[each] ] = val
 
         return Sympartial(
-            Envelope(**envelope_args), 
-            self.O().derive(**osc_args)
+            Envelope(**env_args), 
+            self.get('O').derive(**osc_args)
         )
         

@@ -14,8 +14,8 @@ class Point(object):
     @classmethod
     def weighted_average(cls, a, dist, b):
 
-        x = (dist - 1) * a.x + dist * b.x
-        y = (dist - 1) * a.y + dist * b.y
+        x = (1 - dist) * a.x + dist * b.x
+        y = (1 - dist) * a.y + dist * b.y
 
         if isinstance(a, Point3D) and isinstance(b, Point3D):
             symp = a.symp.weighted_average(a.symp, dist, b.symp)

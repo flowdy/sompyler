@@ -164,6 +164,11 @@ VARIATION_COMPOSERS = {
 
 root_osc = CORE_PRIMITIVE_OSCILLATORS()
 
+for (key, value) in root_osc.items():
+    root_osc[key] = ProtoPartial(None, None, {}, O=value)
+
+# We need to make root_osc a Variation, but first we have to define
+# that class:
 class Variation(object):
 
     __slots__ = (
@@ -176,14 +181,17 @@ class Variation(object):
         _variation_composer=None, _partial_spec=None
       ):
 
+        if label_specs is None:
+            label_specs = {}
         self._upper = upper
         self.base = base
-        self.label_specs = label_specs or {}
+        self.label_specs = label_specs
 
-        for i in topological_sorted(label_specs or {}, upper.lookup):
-            label_specs[i] = ProtoPartial(
-                upper, upper.lookup(i), label_specs, **label_specs[i]
-            )
+        if upper:
+            for i in topological_sort(label_specs, upper.lookup):
+                label_specs[i] = ProtoPartial(
+                    base, upper.lookup(i), label_specs, **label_specs[i]
+                )
 
         self._variation_composer = _variation_composer
 
@@ -199,7 +207,10 @@ class Variation(object):
     @classmethod
     def from_definition(cls, kwargs, upper=None):
 
-        if not kwargs.has('TYPE'):
+        if upper is None:
+            upper = root_osc
+
+        if not 'TYPE' in kwargs:
             Composer = None
         else:
             Composer = VARIATION_COMPOSERS[ kwargs.pop('TYPE') ]
@@ -209,14 +220,19 @@ class Variation(object):
         label_specs = {}
         base_args = {}
 
-        for attr in kwargs:
+        for attr in kwargs.keys():
             if re.match('[a-z]\w+$', attr):
                 label_specs[attr] = kwargs.pop(attr)
             elif re.match('[A-Z][A-Z]?$', attr):
                 base_args[attr] = kwargs.pop(attr)
 
         self = cls(
-            upper, ProtoPartial(**base_args), label_specs,
+            upper, ProtoPartial(
+                base=None, upper=upper.base,
+                pp_registry={ 'LOOK_UP': upper.lookup },
+                **base_args
+            ),
+            label_specs,
             _partial_spec=kwargs.pop('PARTIALS', None)
         )
 
@@ -225,10 +241,11 @@ class Variation(object):
                 (
                   re.sub(r'^=', key)
                       if isinstance(key, str) else key,
-                  Variation.from_definition(value)
+                  Variation.from_definition(value, self)
                 ) for key, value in kwargs.items()
             ))
 
+        return self
 
     def sound_generator_for(self, note):
 
@@ -245,7 +262,7 @@ class Variation(object):
                 partials = [ 100 ]
                 break
             partials = upper._partial_spec
-            upper = self._upper
+            upper = upper._upper
 
         if not isinstance(partials, list):
             partials = [ { 0: (100, partials) } ]
@@ -272,4 +289,4 @@ class Variation(object):
         return SoundGenerator(self.base, sympartial_points, self.base)
 
 
-
+root_osc = Variation(None, None, root_osc)
