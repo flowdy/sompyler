@@ -117,6 +117,7 @@ def CORE_PRIMITIVE_OSCILLATORS (**osc_args):
         'sine': _sine_wave,
         'sawtooth': _sawtooth_wave,
         'square': _square_wave,
+        'noise': _noise_generator,
     }
 
     if 'pp_registry' not in osc_args:
@@ -125,8 +126,6 @@ def CORE_PRIMITIVE_OSCILLATORS (**osc_args):
     for (name, func) in core_oscs.items():
         osc_args[ 'osc_func' ] = func
         core_oscs[name] = Oscillator( **osc_args )
-
-    core_oscs[ ('noise',) ] = noise_generator_factory
 
     return core_oscs
 
@@ -145,28 +144,11 @@ def _square_wave(iseq, freq, phase):
 
 
 
-def noise_generator_factory(noise_spec):
-
-    m = re.match(r'L(\d+)R(\d+)S(\d+)', noise_spec)
-
-    if not m:
-        raise RuntimeError(
-            "noise specification malformed: must be LnnRnnSnn, but is "
-          + noise_spec
-        )
-
-    return lambda iseq, freq: _noise_generator( iseq, freq,
-        last_sample_weight = int(m.group(1)),
-        rebalance_weight   = int(m.group(2)),
-        sample_weight      = int(m.group(3)),
-    )
-
-
 _RANDOMS_1SEC = np.random.random_sample(SAMPLING_RATE)
 
 def _noise_generator(
     iseq, freq, phase=None,
-    rebalance_weight=1, sample_weight=1, last_sample_weight=1
+    # rebalance_weight=1, sample_weight=1, last_sample_weight=1
     ):
     """ This noise generator is dynamic in that it respects the
         frequency. The phase is ignored.
@@ -182,64 +164,29 @@ def _noise_generator(
             except StopIteration:
                 raw_random_iter.reset()
                 rnd = next(raw_random_iter)
-            yield ((i - count) * freq, rnd * 2 - 1)
+            yield ((i - count) * freq, rnd)
             count = i
-
-    # def __legacy_rnd_samples():
-
-    #     last_sample = 0
-
-    #     count = 0
-
-    #     for (freq, sample) in getfreq_rnd():
-    #     
-    #         window_size = -2.0 * freq / SAMPLING_RATE + 1
-
-    #         if window_size > 1:
-    #             window_size = 1.0
-    #             inv = False
-    #         elif window_size < 0:
-    #             window_size *= -1
-    #             inv = True
-    #         else:
-    #             inv = False
-
-    #         window_size = 1 - window_size
-    #         lower_bound = last_sample - window_size / 2
-    #         upper_bound = lower_bound + window_size
-    #     
-    #         if lower_bound < -1:
-    #             upper_bound -= lower_bound + 1
-    #             lower_bound = -1
-    #         elif upper_bound > 1:
-    #             lower_bound -= upper_bound - 1
-    #             upper_bound = 1
-    #     
-    #         if inv:
-    #             lower_bound, upper_bound = (upper_bound * -1.0, lower_bound * -1.0)
-
-    #         cmp_bound = lower_bound if sample < 0 else upper_bound
-    #         next_sample = (
-    #             NOISE_BOUND_WEIGHT * cmp_bound + sample
-    #         ) / (NOISE_BOUND_WEIGHT + 1)
-    #         
-    #         count += 1;
-    #         if True: # new_sample > 1:
-    #             print '%06d. L%+.5f W%+.5f (%+.5f in %+.5f-%+.5f) => %+.5f' % (
-    #                 count, last_sample, window_size, sample, lower_bound, upper_bound, next_sample
-    #             )
-
-    #         yield next_sample
-
-    #         last_sample = next_sample
 
     def rnd_samples():
 
         last_sample = 0
 
-        posw = 1; negw = 1; recent_samples = deque()
+        count = 0
+
+        posw = 1.0; negw = 1.0; recent_samples = deque()
 
         for (freq, sample) in getfreq_rnd():
+        
+            window_size = -2.0 * freq / SAMPLING_RATE + 1
+
+            if window_size > 1:
+                window_size = 1.0
+                inv = False
+            elif window_size < 0:
+                window_size *= -1
+                inv = True
+            else:
+                inv = False
 
             half_period_length = SAMPLING_RATE * 1.0 / (2*freq)
 
@@ -252,21 +199,41 @@ def _noise_generator(
                 else:
                     negw += earlier_sample
 
-            rebalance_pos = 1 - negw/posw if posw > negw else negw/posw - 1
+            if earlier_sample:
+                tendency = posw / (posw + negw)
+            else:
+                tendency = (last_sample or sample) > 0
 
-            next_sample = ( sample * sample_weight
-                          + rebalance_pos * rebalance_weight
-                          + (last_sample or sample) * last_sample_weight
-                          ) / (sample_weight + rebalance_weight + last_sample_weight)
+            window_size = 1 - window_size
+            lower_bound = last_sample - window_size * tendency
+            upper_bound = lower_bound + window_size
+        
+            if lower_bound < -1:
+                upper_bound -= lower_bound + 1
+                lower_bound = -1
+            elif upper_bound > 1:
+                lower_bound -= upper_bound - 1
+                upper_bound = 1
+        
+            if inv:
+                lower_bound, upper_bound = (upper_bound * -1.0, lower_bound * -1.0)
+
+            next_sample = lower_bound + sample % window_size
+            
+            count += 1;
+            if False: # new_sample > 1:
+                print '%06d. L%+.5f W%+.5f (%+.5f in %+.5f-%+.5f) => %+.5f' % (
+                    count, last_sample, window_size, sample, lower_bound, upper_bound, next_sample
+                )
 
             yield next_sample
-
-            last_sample = next_sample
 
             recent_samples.append(next_sample)
             if next_sample > 0:
                 posw += next_sample
             else:
                 negw -= next_sample
+
+            last_sample = next_sample
 
     return np.fromiter(rnd_samples(), np.float32, iseq.size)
