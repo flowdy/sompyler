@@ -50,9 +50,7 @@ class Sympartial(object):
                 shaped_am = Shape.from_string(shaped_am)
             share *= np.array( shaped_am.render(iseq.size) )
 
-        return share * self.oscillator(
-            freq / SAMPLING_RATE, iseq, 0, **osc_args
-        )
+        return share * self.oscillator( freq, iseq, 0, **osc_args )
 
     def derive(self, symp_registry={}, **args):
 
@@ -72,7 +70,10 @@ class Sympartial(object):
         return self.__class__(envelope, oscillator)
 
     @classmethod
-    def weighted_average(cls, left, dist, other):
+    def weighted_average(cls, left, dist, right):
+
+        if left is right:
+            return left
 
         for each in ('envelope', 'oscillator'):
             l = getattr(left, each)

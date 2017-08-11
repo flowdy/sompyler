@@ -28,8 +28,12 @@ class Point(object):
         else:
             return Point2D(x, y)
 
-    def new_alike(self, x, y):
-        return self.__class__(x, y)
+    def new_alike(self, x=None, y=None, *further):
+        if x is None:
+            x = self.x
+        if y is None:
+            y = self.y
+        return self.__class__(x, y, *further)
 
     def __getitem__(self, n):
         if n > 1: return IndexError
@@ -40,16 +44,17 @@ class Point(object):
 class Point2D(Point): pass
 
 class Point3D(Point):
-      __slots__ = ['env']
-      def __init__(self, *args, **kwargs):
-          symp = kwargs.pop('symp')
+      __slots__ = ['symp']
+      def __init__(self, x, y, symp):
           if not symp:
-              raise AttributeError("Missing an envelope for Point3D instance")
-          super(Point, self).__init__(*args, **kwargs)
+              raise AttributeError("Missing a sympartial for Point3D instance")
+          super(Point3D, self).__init__(x, y)
           self.symp = symp
 
-      def new_alike(self, x, y, symp):
-          return self.__class__(x, y, symp=symp)
+      def new_alike(self, x=None, y=None, symp=None):
+          if symp is None:
+              symp = self.symp
+          return super(Point3D, self).new_alike(x, y, symp)
 
       def __getitem__(self, n):
           return self.symp if n == 2 else Point.__getitem__(self, n)

@@ -49,10 +49,8 @@ class Shape(object):
         length = self.length
         for i in range(offset): next(it)
         for i in it:
-            if isinstance(i, Point3D):
-                props = { "frequency": i.x * length, "max_volume": i.y, "envelope": i.env }
-            else:
-                props = { "position": i.x * length, "volume": i.y }
+            x = i.x * self.length
+            i = i.new_alike(x)
             yield i
 
     def y_slice (self, offset, until, step):

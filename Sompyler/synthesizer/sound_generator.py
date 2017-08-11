@@ -10,7 +10,7 @@ import re
 
 class SoundGenerator(Shape):
     __slots__ = ['heard_to_base_freq_divisor']
-    def __new__(cls, initial, the_list, term, heard_to_base_freq_divisor=1):
+    def __init__(self, initial, the_list, term, heard_to_base_freq_divisor=1):
     
         tmp = []
     
@@ -22,7 +22,7 @@ class SoundGenerator(Shape):
         if term is None:
             term = next(p[2] for p in reversed(the_list) if p[2] is not None)
     
-        mylist.append(( int(mylist[-1])+1.0, 0, term ))
+        mylist.append(( int(mylist[-1][0])+1.0, 0, term ))
     
         last_freq = 0
         last_symp = None
@@ -40,7 +40,8 @@ class SoundGenerator(Shape):
                 continue
 
             for tv in tmp:
-                freq, volume = mylist[tv][0,1]
+                freq = mylist[tv][0]
+                volume = mylist[tv][1]
                 left = freq - last_freq
                 right = freq0 - freq
                 dist = left / (left + right)
@@ -50,10 +51,10 @@ class SoundGenerator(Shape):
                 )
     
             tmp = []
-            last_freq = freq
+            last_freq = freq0
             last_symp = symp
     
-        self = super(SoundGenerator, cls)(cls, (mylist[-1][0], 0), *mylist)
+        super(SoundGenerator, self).__init__((mylist[-2][0], 0), *mylist[1:-1])
 
         # TODO: more research and experimenting on that one. It is questionable that we can
         # calculate that so everyone hears the same pitch. For the time being, you can set
@@ -62,9 +63,7 @@ class SoundGenerator(Shape):
         #   _heard_to_base_freq_divisor(coords)
         self.heard_to_base_freq_divisor = heard_to_base_freq_divisor 
 
-        return self
-
-    def render(self, heard_freq, duration, args=None):
+    def render(self, heard_freq, duration=0, args=None):
 
         base_freq = heard_freq / self.heard_to_base_freq_divisor
 
@@ -75,7 +74,7 @@ class SoundGenerator(Shape):
                  type(args)
              ))
         samples = np.array([0.0])
-        sympit = self.iterate_coords()
+        sympit = self.iterate_coords(1)
         total_share = 0
 
         for s in sympit:

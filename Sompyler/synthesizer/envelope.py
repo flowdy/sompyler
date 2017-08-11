@@ -90,9 +90,8 @@ class Envelope(object):
 
         self.__class__( **args )
 
-    CONSTANT_SUSTAIN = Shape((0,1), (1,1))
 
-    def render (self, duration=None):
+    def render (self, duration=0):
         """ considers different prolongation for each phase:
          * attack: cannot be prolonged or trimmed. Static length.
          * sustain: prolonged or trimmed by linear interpolation
@@ -131,6 +130,9 @@ class Envelope(object):
 
         phases = {}
 
+        if left is right:
+            return left
+
         for p in 'attack', 'sustain', 'boost', 'release':
 
             lattr = getattr(left, p)
@@ -145,4 +147,5 @@ class Envelope(object):
 
         return cls( **phases )
 
+CONSTANT_SUSTAIN = Shape((1,1), (1,1))
 
