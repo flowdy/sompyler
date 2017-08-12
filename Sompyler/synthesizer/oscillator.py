@@ -6,6 +6,7 @@ import re
 from Sompyler.synthesizer import BYTES_PER_CHANNEL, SAMPLING_RATE
 from Sompyler.synthesizer.modulation import Modulation
 from Sompyler.synthesizer.shape import Shape
+from Sompyler.synthesizer import normalize_amplitude
 from collections import deque
 
 class Oscillator:
@@ -204,7 +205,7 @@ def _noise_generator(
             else:
                 tendency = (last_sample or sample) > 0
 
-            window_size = 1 - window_size
+            window_size = 2 * (1 - window_size)
             lower_bound = last_sample - window_size * tendency
             upper_bound = lower_bound + window_size
         
@@ -236,4 +237,6 @@ def _noise_generator(
 
             last_sample = next_sample
 
-    return np.fromiter(rnd_samples(), np.float32, iseq.size)
+    noise = np.fromiter(rnd_samples(), np.float32, iseq.size)
+    normalize_amplitude(noise)
+    return noise
