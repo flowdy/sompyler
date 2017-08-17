@@ -30,13 +30,10 @@ class Oscillator:
             if not isinstance(ws, Shape):
                 ws = Shape.from_string( ws )
             self.wave_shape = ws
-            waveshape_res = 2 ** (BYTES_PER_CHANNEL * 8 - 1)
-            amplitudes = ws.render(waveshape_res)
-            amplitudes = np.array( amplitudes + [
-               -x for x in reversed(amplitudes[1:])
-            ])
+            waveshape_res = 2 ** (BYTES_PER_CHANNEL * 8)
+            amplitudes = np.array( ws.render(waveshape_res) - 1 )
             self.wave_shaper = lambda w: amplitudes[
-                (w * (waveshape_res-1) ).astype(np.int)
+                ( (w+1) * (waveshape_res-1) ).astype(np.int)
             ]
         else:
             self.wave_shape  = None
