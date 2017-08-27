@@ -2,8 +2,9 @@ from operator import itemgetter
 import re
 from Sompyler.instrument.protopartial import ProtoPartial
 import Sompyler.instrument.combinators
-from Sompyler.synthesizer.oscillator import Oscillator, CORE_PRIMITIVE_OSCILLATORS
+from Sompyler.synthesizer.oscillator import Oscillator, CORE_PRIMITIVE_OSCILLATORS, Shape
 from Sompyler.synthesizer.sound_generator import SoundGenerator
+from math import ceil
 
 root_osc = CORE_PRIMITIVE_OSCILLATORS()
 
@@ -90,19 +91,23 @@ class Variation(object):
 
         return self
 
+
     def sound_generator_for(self, note):
 
         if self._variation_composer:
             sg = self._variation_composer(note)
             if sg is not None: return sg
 
+        # ---------------
         # We need to make a sound generator from our partial_spec
+        # -----
 
         partials = None
         upper = self
         while upper and partials is None:
             partials = upper._partial_spec
             upper = upper._upper
+        self._partial_spec = partials
 
         # Our partial spec might be a label. Resolve it for only one partial
         if isinstance(partials, str):
@@ -129,10 +134,46 @@ class Variation(object):
                 sympartial_points.append( (freq_factor, volume, sympartial ) )
 
         boundary_symp = self.base.sympartial()
-        return SoundGenerator(boundary_symp, sympartial_points, boundary_symp)
+        soundgen = SoundGenerator(
+            boundary_symp, sympartial_points, boundary_symp
+        )
+
+        # -------------------
+        # Let us add resonance to the partials. The plus of strength
+        # depends on its frequency.
+        # ---
+
+        timbre = None
+        upper = self
+        while upper and timbre is None:
+            timbre = upper._timbre_spec
+            upper = upper._upper
+
+        self._timbre_spec = timbre
+
+        min_diff = soundgen.coords[-1].x
+        last_coord_x = soundgen.coords[0].x
+        for c in soundgen.coords[1:]:
+            diff = c.x - last_coord_x
+            if diff < min_diff:
+                min_diff = diff
+            last_coord_x = c.x
+
+        partitions = ceil( 1.0 / min_diff )
+        timbre = timbre.new_coords( last_coords_x * soundgen.length )
+        amplifications = timbre.render( int(partitions) )
+        y_max = timbre.y_max / 100.0
+        for c in soundgen.coords[1:]:
+            c.y += y_max * amplifications[ int( c.x % min_diff ) ]
+
+        return soundgen
 
 
-root_osc = Variation(None, None, root_osc, _partial_spec=[ 100 ])
+root_osc = Variation(
+    None, None, root_osc,
+    _partial_spec=[ 100 ],
+    _timbre_spec=Shape.from_string("1:1,0")
+)
 
 def topological_sort(labeled_specs, lookup):
     """

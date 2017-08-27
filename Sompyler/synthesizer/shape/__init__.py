@@ -2,7 +2,7 @@
 
 from __future__ import division
 from Sompyler.synthesizer.shape.bezier_gradient import plot_bezier_gradient
-from Sompyler.synthesizer.shape.point import Point, Point2D, Point3D
+from Sompyler.synthesizer.shape.point import BezierEdgePoint, SympartialPoint
 import re
 import copy
 from operator import itemgetter
@@ -20,11 +20,11 @@ class Shape(object):
         if not y_max:
             raise RuntimeError("y_max cannot not be 0 [" + repr(coords) + "]")
 
-        self.coords = [ Point2D(0, 1 if span[1] else 0) ]
+        self.coords = [ BezierEdgePoint(0, 1 if span[1] else 0, True) ]
         self.y_max = y_max
         x_last = 0
 
-        for i in coords:
+        for n, i in enumerate(coords):
             if x_last > i[0]:
                 raise Exception(
                     "Wrong order in coordinates: {} not {} in {}".format(
@@ -39,11 +39,33 @@ class Shape(object):
             if i[1] < 0:
                 raise Exception("y must not be less than 0")
 
+            ext = i[2]
+
+            if ext is None:
+                ext = False
+            elif isinstance(ext, SympartialPoint):
+                pointClass = SympartialPoint
+            elif isinstance(ext, float):
+                pointClass = BezierEdgePoint
+                prior = coords[n-1] if n else self.coords[0]
+                if n < len(coords)-1:
+                    nbp = coords[n+1]
+                    d = distance_c_to_ab( prior, nbp, i )
+                    d0 = Point.distance( prior, nbp )
+                    ext = d / (d + d0) > ext
+                else:
+                    ext = True
+            elif isinstance(ext, bool):
+                pointClass = BezierEdgePoint
+            else:
+                raise RuntimeError(
+                    "Type of extension not supported: " + ext
+                )
             self.coords.append(
-                Point2D( x, i[1] / y_max ) if len(i) == 2
-                    else Point3D( x, i[1] / y_max, i[2] )
+                pointClass( x, i[1] / y_max, ext )
             )
 
+            
     def iterate_coords(self, offset=0):
         it = iter(self.coords)
         length = self.length
@@ -66,7 +88,7 @@ class Shape(object):
     @classmethod
     def from_string(cls, bezier):
         """
-        Shape.from_string("length:[y0;]x1,y1;x2,y2;...")
+        Shape.from_string("length:[y0;]x1,y1[!];x2,y2[!];...")
 
         Define the attack, sustain or release shape of the envelope as a bezier
         curve, that is, the coordinates of its outer polygon.
@@ -74,6 +96,9 @@ class Shape(object):
         Attributes:
           * length - the duration of the part of the envelope, in seconds
           * y0 - the y value of point at x=0. Default is 0.
+
+        If an exclamation mark is appended, the bezier edge will be sharp.
+
         """
 
         if ':' in bezier:
@@ -89,7 +114,13 @@ class Shape(object):
             _, bezier = bezier.split(";",1)
 
         for m in bezier.split(";"):
-            coords.append([ int(n) for n in m.split(",", 1) ])
+            x, y = tuple( m.split(",", 1) )
+            if re.search(r'!$', y):
+                y = y[:-1]
+                s = True
+            else:
+                s = False
+            coords.append([ int(x), int(y), s ])
 
         return cls(*coords)
 
@@ -99,18 +130,34 @@ class Shape(object):
         if adj_length and isinstance(adj_length, bool):
             unit_length *= y_scale
             coords = self.new_coords(y_scale=y_scale) 
-            length = int( unit_length * self.length + .5 )
+            length = int( round(unit_length * self.length) )
         else:
             length = adj_length or self.length
             coords = self.new_coords(adj_length, y_scale)
-            length = int( unit_length * length + .5 )
+            length = int( round(unit_length * length) )
 
         if not length: return []
 
         if final_boost and (float(final_boost.y_max) / self.y_max) > coords[-1].y:
             Shape.add_final_boost( final_boost, coords, length )
 
-        return plot_bezier_gradient( length, *coords )
+        last = coords[0]
+        lasti = 1
+        results = []
+        while lasti < len(coords):
+            segment = [ last ]
+            for c in coords[lasti:]:
+                segment.append(c)
+                lasti += 1
+                if c.is_sharp:
+                    break
+            segment_length = int(
+                round(length * (segment[-1].x - segment[0].x) / coords[-1].x)
+            )
+            results.extend( plot_bezier_gradient( segment_length, *segment) )
+            last = c
+
+        return results
 
     def new_coords(self, adj_length=None, y_scale=1, reverse=False):
         """
@@ -290,15 +337,6 @@ class Shape(object):
     @staticmethod
     def _lessen_coords (coords, by_num):
 
-        def distance_c_to_ab(a, b, c):
-            n_ab = (b.y - a.y) / (b.x - a.x)
-            if n_ab:
-                n_dc = (a.x - b.x) / (b.y - a.y)
-                x = (c.y - n_dc*c.x - b.y + n_ab*b.x) / (n_ab - n_dc)
-            else: # work around division by zero
-                x = c.x
-            return Point.distance( Point(x, n_ab*(x - b.x) + b.y), c )
-
         distances = {}
         for i, a in enumerate(coords[:-2]):
             c = coords[i+1]
@@ -384,3 +422,13 @@ class Shape(object):
         coords.extend( [x for x in new_coords] )
 
         return Shape( self.lengh, *coords )
+
+def distance_c_to_ab(a, b, c):
+    n_ab = (b.y - a.y) / (b.x - a.x)
+    if n_ab:
+        n_dc = (a.x - b.x) / (b.y - a.y)
+        x = (c.y - n_dc*c.x - b.y + n_ab*b.x) / (n_ab - n_dc)
+    else: # work around division by zero
+        x = c.x
+    return Point.distance( Point(x, n_ab*(x - b.x) + b.y), c )
+

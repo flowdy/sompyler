@@ -33,7 +33,7 @@ class Oscillator:
             waveshape_res = 2 ** (BYTES_PER_CHANNEL * 8)
             amplitudes = np.array( ws.render(waveshape_res) - 1 )
             self.wave_shaper = lambda w: amplitudes[
-                ( (w+1) * (waveshape_res-1) ).astype(np.int)
+                ( (w+1) / 2.0 * (waveshape_res-1) ).astype(np.int)
             ]
         else:
             self.wave_shape  = None

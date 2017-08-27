@@ -46,9 +46,12 @@ def b(n,k):
 
 def get_bezier_func(*coords):
 
+    x0 = coords[0].x
+    max = coords[-1].x - x0
+
     len_coords = len(coords) - 1
     xb = [
-        c.x * b(len_coords, i) for i, c in enumerate(coords)
+        (c.x - x0) / max * b(len_coords, i) for i, c in enumerate(coords)
     ]
     yb = [
         c.y * b(len_coords, i) for i, c in enumerate(coords)
