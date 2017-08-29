@@ -141,9 +141,13 @@ class Shape(object):
         if final_boost and (float(final_boost.y_max) / self.y_max) > coords[-1].y:
             Shape.add_final_boost( final_boost, coords, length )
 
+        # A sharp edge of a bezier curve always corresponds to a point of the
+        # graph. So we need to make segments the start and end points of which
+        # are sharp edges, in the way that the end point of a segment is
+        # identical to the start point of the successor.
         last = coords[0]
         lasti = 1
-        results = []
+        segments = []
         while lasti < len(coords):
             segment = [ last ]
             for c in coords[lasti:]:
@@ -151,11 +155,33 @@ class Shape(object):
                 lasti += 1
                 if c.is_sharp:
                     break
-            segment_length = int(
-                round(length * (segment[-1].x - segment[0].x) / coords[-1].x)
-            )
-            results.extend( plot_bezier_gradient( segment_length, *segment) )
+            segments.append( segment )
             last = c
+
+        # We will now divide and distribute the requested total length in
+        # samples. Let us round in two phases. First we save the floor values,
+        # then we increment selected ones by one. Selected are those which
+        # are closest to their successor ordinal. Where that rule leads to
+        # ambiguity, the last of each group of values with equal rational part
+        #  is selected.
+        tmp_length_calc = reversed( sorted(
+            (
+                (s, ( s[-1].x - s[0].x ) / coords[-1].x * length)
+                    for s in segments
+            ),
+            key=lambda t: t[1] % int( t[1] )
+        ))
+        lengths = { ( id( t[0] ), int( t[1] ) ) for t in tmp_length_calc }
+        remainder = length - sum( lengths.values() )
+        for i in tmp_length_calc[:remainder]:
+            lengths[ id( i[0] ) ] += 1
+
+        results = []
+        for s in segments:
+            length = lengths[ id(s) ]
+            if length == 0:
+                continue
+            results.extend( plot_bezier_gradient( length, s ) )
 
         return results
 
