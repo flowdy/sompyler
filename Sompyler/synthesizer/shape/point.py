@@ -70,7 +70,7 @@ class BezierEdgePoint(Point):
 class SympartialPoint(Point):
     __slots__ = ['symp']
     def __init__(self, x, y, symp):
-        if not symp:
+        if symp is None:
             raise AttributeError("Missing a sympartial for SympartialPoint instance")
         super(SympartialPoint, self).__init__(x, y)
         self.symp = symp

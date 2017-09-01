@@ -43,8 +43,6 @@ class Shape(object):
 
             if ext is None:
                 ext = False
-            elif isinstance(ext, SympartialPoint):
-                pointClass = SympartialPoint
             elif isinstance(ext, float):
                 pointClass = BezierEdgePoint
                 prior = coords[n-1] if n else self.coords[0]
@@ -57,9 +55,15 @@ class Shape(object):
                     ext = True
             elif isinstance(ext, bool):
                 pointClass = BezierEdgePoint
+            elif isinstance(ext, object):
+                pointClass = SympartialPoint
             else:
                 raise RuntimeError(
                     "Type of extension not supported: " + ext
+                )
+            if ext is None:
+                raise RuntimeError(
+                    "ext is None"
                 )
             self.coords.append(
                 pointClass( x, i[1] / y_max, ext )
@@ -113,7 +117,7 @@ class Shape(object):
         if m:
             _, bezier = bezier.split(";",1)
 
-        for m in bezier.split(";"):
+        for m in re.split(r";\s*", bezier):
             x, y = tuple( m.split(",", 1) )
             if re.search(r'!$', y):
                 y = y[:-1]
@@ -124,15 +128,20 @@ class Shape(object):
 
         return cls(*coords)
 
-    def render (self, unit_length=1, y_scale=1, adj_length=False, final_boost=None ):
+    def render (
+        self, unit_length=1, is_length_factor=True, y_scale=1,
+        adj_length=False, final_boost=None
+    ):
         "Get samples according to the bezier curve"
+
+        base_length = self.length if is_length_factor else 1
 
         if adj_length and isinstance(adj_length, bool):
             unit_length *= y_scale
             coords = self.new_coords(y_scale=y_scale) 
-            length = int( round(unit_length * self.length) )
+            length = int( round(unit_length * base_length) )
         else:
-            length = adj_length or self.length
+            length = adj_length or base_length
             coords = self.new_coords(adj_length, y_scale)
             length = int( round(unit_length * length) )
 
@@ -163,15 +172,15 @@ class Shape(object):
         # then we increment selected ones by one. Selected are those which
         # are closest to their successor ordinal. Where that rule leads to
         # ambiguity, the last of each group of values with equal rational part
-        #  is selected.
-        tmp_length_calc = reversed( sorted(
+        # is selected.
+        tmp_length_calc = list(reversed( sorted(
             (
                 (s, ( s[-1].x - s[0].x ) / coords[-1].x * length)
                     for s in segments
             ),
             key=lambda t: t[1] % int( t[1] )
-        ))
-        lengths = { ( id( t[0] ), int( t[1] ) ) for t in tmp_length_calc }
+        )))
+        lengths = dict( ( id( t[0] ), int( t[1] ) ) for t in tmp_length_calc )
         remainder = length - sum( lengths.values() )
         for i in tmp_length_calc[:remainder]:
             lengths[ id( i[0] ) ] += 1
@@ -181,7 +190,7 @@ class Shape(object):
             length = lengths[ id(s) ]
             if length == 0:
                 continue
-            results.extend( plot_bezier_gradient( length, s ) )
+            results.extend( plot_bezier_gradient( length, *s ) )
 
         return results
 

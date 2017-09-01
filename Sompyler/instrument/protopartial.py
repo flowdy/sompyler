@@ -60,7 +60,7 @@ class ProtoPartial(object):
                 value = Modulation.from_string(value, pp_registry)
             setattr(self, '_' + prop, value)
 
-        if self._O is None:
+        if self.get('O') is None:
             raise Exception("ProtoPartial instance missing oscillator")
 
     def get (self, attr):
@@ -73,7 +73,7 @@ class ProtoPartial(object):
         if value is not None:
             return value
         elif attr in self._cache:
-            return self.cache[attr]
+            return self._cache[attr]
 
         for m in (self._upper, self._base):
             if m is None:

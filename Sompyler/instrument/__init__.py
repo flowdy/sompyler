@@ -17,12 +17,13 @@ class Variation(object):
 
     __slots__ = (
         '_upper', 'base', '_variation_composer',
-        'label_specs', '_partial_spec'
+        'label_specs', '_partial_spec', '_timbre_spec'
     )
 
     def __init__(
         self, upper, base, label_specs=None,
-        _variation_composer=None, _partial_spec=None
+        _variation_composer=None, _partial_spec=None,
+        _timbre_spec=None,
       ):
 
         if label_specs is None:
@@ -40,6 +41,7 @@ class Variation(object):
         self._variation_composer = _variation_composer
 
         self._partial_spec = _partial_spec
+        self._timbre_spec = _timbre_spec
 
     def lookup(self, name):
         spec = self.label_specs.get(name)
@@ -64,6 +66,10 @@ class Variation(object):
         label_specs = {}
         base_args = {}
 
+        timbre = kwargs.pop('TIMBRE', None)
+        if timbre is not None:
+            timbre = Shape.from_string(timbre)
+
         for attr in kwargs.keys():
             if re.match('[a-z]\w+$', attr):
                 label_specs[attr] = kwargs.pop(attr)
@@ -77,7 +83,8 @@ class Variation(object):
                 **base_args
             ),
             label_specs,
-            _partial_spec=kwargs.pop('PARTIALS', None)
+            _partial_spec=kwargs.pop('PARTIALS', None),
+            _timbre_spec=timbre
         )
 
         if Composer:
@@ -96,7 +103,8 @@ class Variation(object):
 
         if self._variation_composer:
             sg = self._variation_composer(note)
-            if sg is not None: return sg
+            if sg is not None:
+                return sg
 
         # ---------------
         # We need to make a sound generator from our partial_spec
@@ -109,7 +117,8 @@ class Variation(object):
             upper = upper._upper
         self._partial_spec = partials
 
-        # Our partial spec might be a label. Resolve it for only one partial
+        # Our partial spec might be just a simple label.
+        # Resolve it for only one partial.
         if isinstance(partials, str):
             partials = [ { 0: (100, partials) } ]
 
@@ -118,12 +127,27 @@ class Variation(object):
             pno += 1
             if not isinstance(divs, dict):
                 divs = { 0: divs }
-            for d in sorted(divs):
+            for d in sorted( divs.keys() ):
                 p = divs[d]
                 freq_factor = pno * 2 ** (d*1.0/1200)
                 if isinstance(p, tuple):
-                    sympartial = self.lookup(p[1]).sympartial
+                    sympartial = self.lookup( p[1] ).sympartial
                     volume = p[0]
+                elif isinstance(p, dict):
+                    volume = p.pop('V')
+                    sympartial = ProtoPartial(
+                        self.upper, self.base, self.labeled_specs,
+                        pp_registry=self.labeled_specs
+                    ).sympartial
+                elif isinstance(p, str):
+                    m = re.match(r'(\d+)\s+(\w+)', p)
+                    if m:
+                        sympartial = self.lookup( m.group(2) ).sympartial()
+                        volume = int(m.group(1))
+                    else:
+                        raise TypeError(
+                            "Could not parse string: " + p
+                        )
                 elif isinstance(p, int):
                     sympartial = None
                     volume = p
@@ -133,13 +157,16 @@ class Variation(object):
                     )
                 sympartial_points.append( (freq_factor, volume, sympartial ) )
 
-        boundary_symp = self.base.sympartial()
+        boundary_symp = None if (
+            sympartial_points[0] or sympartial_points[-1]
+        ) else self.base.sympartial
+
         soundgen = SoundGenerator(
             boundary_symp, sympartial_points, boundary_symp
         )
 
         # -------------------
-        # Let us add resonance to the partials. The plus of strength
+        # Let us add resonance to the partials. The strength factor
         # depends on its frequency.
         # ---
 
@@ -151,20 +178,22 @@ class Variation(object):
 
         self._timbre_spec = timbre
 
-        min_diff = soundgen.coords[-1].x
-        last_coord_x = soundgen.coords[0].x
+        min_diff = 1.0
+        prior_coord_x = soundgen.coords[0].x
         for c in soundgen.coords[1:]:
-            diff = c.x - last_coord_x
+            diff = c.x - prior_coord_x
             if diff < min_diff:
                 min_diff = diff
-            last_coord_x = c.x
+            prior_coord_x = c.x
 
         partitions = ceil( 1.0 / min_diff )
-        timbre = timbre.new_coords( last_coords_x * soundgen.length )
-        amplifications = timbre.render( int(partitions) )
-        y_max = timbre.y_max / 100.0
+        amplifications = timbre.render(
+            int(partitions),
+            is_length_factor=False,
+            adj_length=( note['pitch'] * soundgen.length )
+        )
         for c in soundgen.coords[1:]:
-            c.y += y_max * amplifications[ int( c.x % min_diff ) ]
+            c.y += amplifications[ int( c.x % min_diff ) ] - 1
 
         return soundgen
 
@@ -172,7 +201,7 @@ class Variation(object):
 root_osc = Variation(
     None, None, root_osc,
     _partial_spec=[ 100 ],
-    _timbre_spec=Shape.from_string("1:1,0")
+    _timbre_spec=Shape.from_string("20000:1,1")
 )
 
 def topological_sort(labeled_specs, lookup):
@@ -188,7 +217,7 @@ def topological_sort(labeled_specs, lookup):
     # Extract dependency information
     def find_dependencies(spec):
         dependencies = set()
-        for i in specs:
+        for i in spec:
             listdeps = re.findall(r'@([a-z]\w+)', i)
             for d in listdeps:
                 if d not in labeled_specs:
@@ -200,26 +229,26 @@ def topological_sort(labeled_specs, lookup):
                 dependencies.add(d)
         return dependencies
 
-    labeled_specs = dict(
-        (label, find_dependencies(spec))
-            for (label, spec) in labeled_specs
-    )
+    labeled_dependency_sets = {}
+    for label, spec in labeled_specs.items():
+        deps = find_dependencies(spec)
+        labeled_dependency_sets[label] = deps
 
     # Run until the unsorted graph is empty.
-    while labeled_specs:
+    while labeled_dependency_sets:
 
         acyclic = False
-        for node, edges in list(labeled_specs.items()):
+        for node, edges in list(labeled_dependency_sets.items()):
             for edge in edges:
                 if edge in labeled_specs:
                     break
             else:
                 acyclic = True
-                del labeled_specs[node]
+                del labeled_dependency_sets[node]
                 graph_sorted.append(node)
 
         if not acyclic:
-            circular_dependencies = labeled_specs.keys().join(", ")
+            circular_dependencies = labeled_dependency_sets.keys().join(", ")
             raise RuntimeError(
                 "Circular dependencies could not be resolved among elements "
                      + circular_dependencies

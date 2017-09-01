@@ -147,5 +147,5 @@ class Envelope(object):
 
         return cls( **phases )
 
-CONSTANT_SUSTAIN = Shape((1,1), (1,1))
+CONSTANT_SUSTAIN = Shape((1,1), (1,1, True))
 
