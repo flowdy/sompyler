@@ -31,7 +31,7 @@ cdef void scan_bezier(
 
     if results[ ix-1 ] == NOT_INITIALIZED:
         scan_bezier( approx, length, results, start, half_pos, ix-1 )
-    elif results[ ix+1 ] != NOT_INITIALIZED:
+    elif length and results[ ix+1 ] != NOT_INITIALIZED:
         return
 
     if ix < max:

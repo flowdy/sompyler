@@ -19,7 +19,7 @@ def scan_bezier(approx, length, results, start, pos, max):
 
     if results[ x-1 ] is None:
         scan_bezier( approx, length, results, start, half_pos, x-1 )
-    elif results[ x+1 ] is not None:
+    elif length and results[ x+1 ] is not None:
         return
 
     if x < max:

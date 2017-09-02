@@ -19,7 +19,7 @@ class Point(object):
 
     @classmethod
     def weighted_average(cls, *args):
-        return cls(*_weighted_average(*args))
+        return cls(*Point._weighted_average(*args))
 
     def new_alike(self, x=None, y=None, *further):
         if x is None:

@@ -16,7 +16,7 @@ for (key, value) in root_osc.items():
 class Variation(object):
 
     __slots__ = (
-        '_upper', 'base', '_variation_composer',
+        'upper', 'base', '_variation_composer',
         'label_specs', '_partial_spec', '_timbre_spec'
     )
 
@@ -28,7 +28,7 @@ class Variation(object):
 
         if label_specs is None:
             label_specs = {}
-        self._upper = upper
+        self.upper = upper
         self.base = base
         self.label_specs = label_specs
 
@@ -45,8 +45,8 @@ class Variation(object):
 
     def lookup(self, name):
         spec = self.label_specs.get(name)
-        if spec is None and self._upper:
-            spec = self._upper.lookup(name)
+        if spec is None and self.upper:
+            spec = self.upper.lookup(name)
             self.label_specs[name] = spec
         return spec
 
@@ -114,7 +114,7 @@ class Variation(object):
         upper = self
         while upper and partials is None:
             partials = upper._partial_spec
-            upper = upper._upper
+            upper = upper.upper
         self._partial_spec = partials
 
         # Our partial spec might be just a simple label.
@@ -125,20 +125,20 @@ class Variation(object):
         sympartial_points = []
         for pno, divs in enumerate(partials):
             pno += 1
-            if not isinstance(divs, dict):
+            if not isinstance(divs, dict) or 'V' in divs:
                 divs = { 0: divs }
             for d in sorted( divs.keys() ):
                 p = divs[d]
                 freq_factor = pno * 2 ** (d*1.0/1200)
                 if isinstance(p, tuple):
-                    sympartial = self.lookup( p[1] ).sympartial
+                    sympartial = self.lookup( p[1] ).sympartial()
                     volume = p[0]
                 elif isinstance(p, dict):
                     volume = p.pop('V')
                     sympartial = ProtoPartial(
-                        self.upper, self.base, self.labeled_specs,
-                        pp_registry=self.labeled_specs
-                    ).sympartial
+                        None, self.base, self.label_specs,
+                        **p
+                    ).sympartial()
                 elif isinstance(p, str):
                     m = re.match(r'(\d+)\s+(\w+)', p)
                     if m:
@@ -174,7 +174,7 @@ class Variation(object):
         upper = self
         while upper and timbre is None:
             timbre = upper._timbre_spec
-            upper = upper._upper
+            upper = upper.upper
 
         self._timbre_spec = timbre
 

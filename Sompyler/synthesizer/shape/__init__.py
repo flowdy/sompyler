@@ -2,7 +2,7 @@
 
 from __future__ import division
 from Sompyler.synthesizer.shape.bezier_gradient import plot_bezier_gradient
-from Sompyler.synthesizer.shape.point import BezierEdgePoint, SympartialPoint
+from Sompyler.synthesizer.shape.point import Point, BezierEdgePoint, SympartialPoint
 import re
 import copy
 from operator import itemgetter
@@ -141,9 +141,8 @@ class Shape(object):
             coords = self.new_coords(y_scale=y_scale) 
             length = int( round(unit_length * base_length) )
         else:
-            length = adj_length or base_length
             coords = self.new_coords(adj_length, y_scale)
-            length = int( round(unit_length * length) )
+            length = int( round(unit_length * base_length) )
 
         if not length: return []
 
@@ -178,7 +177,7 @@ class Shape(object):
                 (s, ( s[-1].x - s[0].x ) / coords[-1].x * length)
                     for s in segments
             ),
-            key=lambda t: t[1] % int( t[1] )
+            key=lambda t: t[1] - int( t[1] )
         )))
         lengths = dict( ( id( t[0] ), int( t[1] ) ) for t in tmp_length_calc )
         remainder = length - sum( lengths.values() )
@@ -244,7 +243,7 @@ class Shape(object):
                    n += 1
                 else: break
             h = coords[n-1]
-            new_coord = Point.weighted_average(
+            new_coord = h.weighted_average(
                 h, (adj_length - h.x) / (i.x - h.x), i
             )
             del coords[n:]
@@ -298,7 +297,7 @@ class Shape(object):
                 ( s_end.y - s_begin.y ) / ( s_end.x - s_begin.x )
               - ( b_end.y - b_begin.y ) / ( b_end_x - b_begin_x )
             )
-        s_intersect = Point.weighted_average(
+        s_intersect = s_begin.weighted_average(
             s_begin, (x - s_begin.x) / (s_end.x - s_begin.x), s_end
         )
         take_sustain.append(s_intersect)
@@ -338,7 +337,9 @@ class Shape(object):
 
         coords = []
         for i in range( len(lcoords) ):
-            coords.append(Point.weighted_average( lcoords[i], dist, rcoords[i] ))
+            l = lcoords[i]
+            r = rcoords[i]
+            coords.append(l.weighted_average( l, dist, r ))
 
         return Shape( (adj_length, coords[0].y), *coords )
 
@@ -425,9 +426,9 @@ class Shape(object):
             interval = xlen / (inter_coords + 1)
 
             for step in range(inter_coords):
-                x = coords[i].x + (step+1) * interval
-                y = (c.y - coords[i].y) / xlen * (x - c.x) + c.y
-                new_coords.append( Point2D(x, y) )
+                new_coords.append( coords[i].weighted_average(
+                    coords[i], (step+1) / (inter_coords+1) * 1.0, c
+                ) )
 
             new_coords.append(c)
 
