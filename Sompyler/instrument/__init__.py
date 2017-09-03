@@ -188,12 +188,10 @@ class Variation(object):
 
         partitions = ceil( 1.0 / min_diff )
         amplifications = timbre.render(
-            int(partitions),
-            is_length_factor=False,
-            adj_length=( note['pitch'] * soundgen.length )
+            1, adj_length=( note['pitch'] * soundgen.length )
         )
         for c in soundgen.coords[1:]:
-            c.y += amplifications[ int( c.x % min_diff ) ] - 1
+            c.y += amplifications[ int( len(amplifications) * c.x )-1 ] - 1
 
         return soundgen
 
@@ -201,7 +199,7 @@ class Variation(object):
 root_osc = Variation(
     None, None, root_osc,
     _partial_spec=[ 100 ],
-    _timbre_spec=Shape.from_string("20000:1,1")
+    _timbre_spec=Shape.from_string("20000:1;1,1")
 )
 
 def topological_sort(labeled_specs, lookup):
