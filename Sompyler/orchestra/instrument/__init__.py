@@ -1,7 +1,7 @@
 from operator import itemgetter
 import re
-from Sompyler.instrument.protopartial import ProtoPartial
-import Sompyler.instrument.combinators
+from Sompyler.orchestra.instrument.protopartial import ProtoPartial
+import Sompyler.orchestra.instrument.combinators
 from Sompyler.synthesizer.oscillator import Oscillator, CORE_PRIMITIVE_OSCILLATORS, Shape
 from Sompyler.synthesizer.sound_generator import SoundGenerator
 from math import ceil

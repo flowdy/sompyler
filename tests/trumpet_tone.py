@@ -1,7 +1,7 @@
 import yaml, numpy
 from sys import argv
 from sine2wav import write_wavefile
-from Sompyler.instrument import Variation
+from Sompyler.orchestra.instrument import Variation
 from Sompyler.synthesizer import normalize_amplitude
 
 trumpet = yaml.load(open("instruments/dev-trumpet.spli", "r"))
