@@ -1,64 +1,64 @@
-from Sompyler.synthesizer import SAMPLING_RATE
+from Sompyler.score.stressor import Stressor
 
 class Measure(object):
 
     def __init__(
-        self, total_ticks, ticks_per_minute,
-        lower_stress_level, upper_stress_level
+        self, ticks_per_minute, stress_pattern,
+        lower_stress_bound, upper_stress_bound
     ):
 
-        self.total_ticks = total_ticks * 1.0
+        self.stressor = Stressor(stress_pattern)
 
         if isinstance(ticks_per_minute, int):
             ticks_per_minute = (ticks_per_minute, 1)
-        else:
+        elif not isinstance(ticks_per_minute, tuple):
             ticks_per_minute = (
                 ticks_per_minute[0],
                 ticks_per_minute[1] * 1.0 / ticks_per_minute[0]
             )
 
-        if isinstance(lower_stress_level, int):
-            self.lower_stress_level = (lower_stress_level, 1)
-        else:
-            self.lower_stress_level = (
-                lower_stress_level[0],
-                lower_stress_level[1] * 1.0 / lower_stress_level[0]
+        if isinstance(lower_stress_bound, int):
+            self.lower_stress_bound = (lower_stress_bound, 1)
+        elif not isinstance(lower_stress_bound, tuple):
+            self.lower_stress_bound = (
+                lower_stress_bound[0],
+                lower_stress_bound[1] * 1.0 / lower_stress_bound[0]
             )
 
-        if isinstance(upper_stress_level, int):
-            self.upper_stress_level = (upper_stress_level, 1)
-        else:
-            self.upper_stress_level = (
-                upper_stress_level[0],
-                upper_stress_level[1] * 1.0 / upper_stress_level[0]
+        if isinstance(upper_stress_bound, int):
+            self.upper_stress_bound = (upper_stress_bound, 1)
+        elif not isinstance(upper_stress_bound, tuple):
+            self.upper_stress_bound = (
+                upper_stress_bound[0],
+                upper_stress_bound[1] * 1.0 / upper_stress_bound[0]
             )
 
-    def __call__(
-        self, offset, length,
-        stress, chord_stress, max_chord_stress
-    ):
 
-        offset /= self.total_ticks
-        length /= self.total_ticks
+    def seconds_before_tick( self, tick ):
+
+        offset = 1.0 * tick / self.stressor.cumlen
 
         if int(offset):
             raise RuntimeError("Offset exceeds measure")
 
         tpm, tpm_factor = self.ticks_per_minute
 
-        offset_s = int(round(SAMPLING_RATE * (tpm * tpm_factor**offset) / 60))
+        seconds = 60.0 / ( tpm * tpm_factor**offset ) * offset
 
-        length_s = int(round(SAMPLING_RATE * (tpm * tpm_factor**length) / 60))
+        return seconds
 
-        ls, ls_factor = self.lower_stress
+
+    def stress_of_tick( self, tick ):
+
+        offset = 1.0 * tick / self.stressor.cumlen
+
+        ls, ls_factor = self.lower_stress_bound
         ls = ls * ls_factor**offset
 
-        us, us_factor = self.upper_stress
+        us, us_factor = self.upper_stress_bound
         us = us * us_factor**offset
 
-        stress = stress/chord_stress * (
-            ls + chord_stress * (us - ls) / max_chord_stress
-        )
-
-        return (offset_s, length_s, stress)
+        stress = ls * (us/ls) ** self.stressor.of( round(offset) )
+        
+        return stress
 
