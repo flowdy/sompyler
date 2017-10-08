@@ -35,18 +35,9 @@ class Measure(object):
 
 
     def seconds_before_tick( self, tick ):
-
         offset = 1.0 * tick / self.stressor.cumlen
-
-        if int(offset):
-            raise RuntimeError("Offset exceeds measure")
-
         tpm, tpm_factor = self.ticks_per_minute
-
-        seconds = 60.0 / ( tpm * tpm_factor**offset ) * offset
-
-        return seconds
-
+        return 60.0 / ( tpm * tpm_factor**offset ) * offset
 
     def stress_of_tick( self, tick ):
 
