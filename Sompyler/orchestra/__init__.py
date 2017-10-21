@@ -1,13 +1,14 @@
 from __future__ import print_function
 from Sompyler.orchestra.instrument import Instrument
 from Sompyler.synthesizer import SAMPLING_RATE
-import tempfile.mkdtemp, sys, os, multiprocessing, numpy, traceback
+from Sompyler.score import Score
+from tempfile import mkdtemp
+import sys, os, multiprocessing, numpy, traceback
 
 cached_files_dir = None
 
 
-def play(score_fn, out_fn):
-    import soundfile
+def play(score_fn, workers=None):
 
     distinct_notes = []
     max_end_offset = 0
@@ -15,6 +16,7 @@ def play(score_fn, out_fn):
     initialize_worker( mkdtemp() )
 
     pool = multiprocessing.Pool(
+        processes=workers or 1,
         initializer=initialize_worker,
         initargs=[cached_files_dir]
     )
@@ -28,20 +30,19 @@ def play(score_fn, out_fn):
         
         note = distinct_notes[id]
 
-        if length is None:
+        if length is not None:
             note.length = length
             end_offset = int(round(
-                     SAMPLING_RATE * max(o for o note.occurrences)
+                     SAMPLING_RATE * max(o for o in note.occurrences)
                  )) + length
             if end_offset > max_end_offset:
                 max_end_offset = end_offset
         else:
             with open(tone_id_to_filename(id, "err"), "w") as f:
-                print( "ERROR:",
-                    note.instrument,
-                    repr(note.properties),
+                print( "ERROR: Rendering of" + repr(note) + " failed:",
                     f.read(),
-                    file=sys.stderr )
+                    file=sys.stderr
+                )
             errors_cnt += 1
 
         notes_cnt += 1
@@ -55,34 +56,35 @@ def play(score_fn, out_fn):
 
     for id, note in distinct_notes.items():
         tone = numpy.load( tone_id_to_filename(id, "raw") )
-        for offset, position in note.positions():
+        for offset, position in note.occurrences():
             begin = int(round( SAMPLING_RATE * offset ))
-            end   = offset + int(round( SAMPLING_RATE * note.length ))
+            end   = begin + int(note.length) + 1
             samples[offset:end] += numpy.nparray([ position ]) * tone
 
-    soundfile.write(out_fn, samples, SAMPLING_RATE)
-
+    return samples
 
 def notes_iterator(score_file, notes):
-    from Sompyler.score import Score
 
     notes_ids = {}
 
     for note in Score(score_file):
 
+        note_hash = note.hash_same_wherever_occurs()
+
         id = notes_ids.get(note)
 
         if id:
-            notes[id].occurrences.update( note.occurrences.items() )
+            notes[note_hash].occurrences.update( note.occurrences.items() )
             continue
         else:
-            new_id = len(notes)
+            new_id = 1 + len(notes)
             distinct_notes.append(note)
-            notes_ids[note] = note
+            notes_ids[ note_hash ] = new_id
             instrument_spec_fn = get_abspath_to(
                 instrument_filename, score_file
             )
-            yield (new_id, instrument_spec_fn, note.properties)
+            note.instrument = instrument_spec_fn
+            yield (new_id, note)
 
 
 def get_abspath_to( instrument_spec_fn, score_file ):
@@ -105,10 +107,12 @@ def initialize_worker(tempdir):
 
 
 current_instrument = ("", None)
+
 def render_tone(info):
     global current_instrument
 
-    id, instrument, properties = *info
+    id, note = info
+    instrument_defn_file = note.instrument
 
     if current_instrument[0] == instrument_defn_file:
         instrument = current_instrument[1]
@@ -117,11 +121,14 @@ def render_tone(info):
         current_instrument = (instrument_defn_file, instrument)
 
     try:
-        tone = instrument.render(properties)
-        numpy.save(tone, tone_id_to_file_name(id, "raw") )
+        tone = instrument.render(
+            note.pitch, note.stress, note.length,
+            note.properties
+        )
+        numpy.save(tone, tone_id_to_filename(id, "raw") )
         return id, len(tone)
     except Exception as e:
-        with open(tone_id_to_file_name(id, "err"), "w"):
+        with open(tone_id_to_filename(id, "err"), "w"):
             f.write(traceback.format_exc(err))
         return id, None
 

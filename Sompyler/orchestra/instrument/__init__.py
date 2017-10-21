@@ -2,6 +2,7 @@ from operator import itemgetter
 import re
 from Sompyler.orchestra.instrument.protopartial import ProtoPartial
 import Sompyler.orchestra.instrument.combinators
+from Sompyler.synthesizer import normalize_amplitude
 from Sompyler.synthesizer.oscillator import Oscillator, CORE_PRIMITIVE_OSCILLATORS, Shape
 from Sompyler.synthesizer.sound_generator import SoundGenerator
 from math import ceil
@@ -10,6 +11,35 @@ root_osc = CORE_PRIMITIVE_OSCILLATORS()
 
 for (key, value) in root_osc.items():
     root_osc[key] = ProtoPartial(None, None, {}, O=value)
+
+class Instrument(object):
+    __slots__ = ('root_variation',)
+
+    def __init__(self, definition):
+        self.root_variation = Variation(definition)
+
+    def render_tone(self, pitch, length, stress, properties=None):
+
+        note = {
+            'pitch': pitch,
+            'length': length,
+            'stress': stress,
+        }
+
+        if properties:
+            note.update(properties)
+        else:
+            properties = {}
+
+        sg = self.root_variation.sound_generator_for(note)
+        tone = sg.render(pitch, length, {
+            (x, properties[x])
+                for x in ('shaped_am', 'shaped_fm')
+                if x in properties
+        })
+        normalize_amplitude(tone)
+
+        return tone
 
 # We need to make root_osc a Variation, but first we have to define
 # that class:
