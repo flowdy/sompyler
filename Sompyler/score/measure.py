@@ -167,6 +167,10 @@ class ChannelBoundMeasure(Measure):
 
         for offset, chord in self.chords:
 
+            if not isinstance(chord, list):
+                note = chord
+                chord = [note]
+
             yield Chord(
                 self.offset, offset, self.channel,
                 self.stressor.of(offset),

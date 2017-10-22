@@ -1,6 +1,7 @@
 import re
 
 class Channel(object):
+    __slots__ = ('tuning', 'instrument', 'position')
 
     sum_intensities = 0
 
@@ -17,7 +18,7 @@ class Channel(object):
             framedir = float( m.group(4) )
             spread = vardir / (vardir + framedir)
         else:
-            raise SyntaxError("room_spread: 0-100[RL]0-100")
+            raise SyntaxError("room_spread: VARVOL|BASE_VOL;VARDIR|FRAMEDIR")
         
         if distance > varvol:
             raise ValueError("vardist cannot be greater than varvol")
@@ -40,7 +41,7 @@ class Channel(object):
         right /= max_ampl
         left  /= max_ampl
 
-        channel.raw_position = (left, right)
+        channel.position = (left, right)
 
     def set_amplitudes(self):
 
