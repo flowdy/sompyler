@@ -3,7 +3,7 @@ from Sompyler.orchestra.instrument import Instrument
 from Sompyler.synthesizer import SAMPLING_RATE
 from Sompyler.score import Score
 from tempfile import mkdtemp
-import sys, os, multiprocessing, numpy, traceback
+import sys, os, numpy, traceback
 
 cached_files_dir = None
 
@@ -15,16 +15,22 @@ def play(score_fn, workers=None):
 
     initialize_worker( mkdtemp() )
 
-    pool = multiprocessing.Pool(
-        processes=workers or 1,
-        initializer=initialize_worker,
-        initargs=[cached_files_dir]
-    )
+    if workers == 1:
+        import itertools
+        imap = itertools.imap
+    else:
+        import multiprocessing 
+        pool = multiprocessing.Pool(
+            processes=workers or 1,
+            initializer=initialize_worker,
+            initargs=[cached_files_dir]
+        )
+        imap = pool.imap_unordered
 
     notes_cnt  = 0
     errors_cnt = 0
 
-    for id, length in pool.imap_unordered(
+    for id, length in imap(
             render_tone, notes_iterator(score_fn, distinct_notes)
         ):
         
@@ -37,9 +43,13 @@ def play(score_fn, workers=None):
                  )) + length
             if end_offset > max_end_offset:
                 max_end_offset = end_offset
+            print( "OK Note {} successfully rendered.".format(id) )
         else:
-            with open(tone_id_to_filename(id, "err"), "w") as f:
-                print( "ERROR: Rendering of" + repr(note) + " failed:",
+            with open(tone_id_to_filename(id, "err"), "r") as f:
+                print(
+                    "ERROR: Rendering of ID {}, {} failed:".format(
+                        id, repr(note)
+                    ),
                     f.read(),
                     file=sys.stderr
                 )
@@ -75,9 +85,11 @@ def notes_iterator(score_file, notes):
 
         if id:
             notes[note_hash].occurrences.update( note.occurrences.items() )
+            print( "ADD {} occurring also at {}".format(id, note.occurrences) )
             continue
         else:
             new_id = 1 + len(notes)
+            print( "NEW {} has ID {}".format(note, new_id) )
             distinct_notes.append(note)
             notes_ids[ note_hash ] = new_id
             instrument_spec_fn = get_abspath_to(
@@ -121,8 +133,8 @@ def render_tone(info):
         current_instrument = (instrument_defn_file, instrument)
 
     try:
-        tone = instrument.render(
-            note.pitch, note.stress, note.length,
+        tone = instrument.render_tone(
+            note.pitch, note.length, note.stress,
             note.properties
         )
         numpy.save(tone, tone_id_to_filename(id, "raw") )

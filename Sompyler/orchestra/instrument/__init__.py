@@ -1,5 +1,5 @@
 from operator import itemgetter
-import re
+import re, yaml
 from Sompyler.orchestra.instrument.protopartial import ProtoPartial
 import Sompyler.orchestra.instrument.combinators
 from Sompyler.synthesizer import normalize_amplitude
@@ -12,11 +12,14 @@ root_osc = CORE_PRIMITIVE_OSCILLATORS()
 for (key, value) in root_osc.items():
     root_osc[key] = ProtoPartial(None, None, {}, O=value)
 
+
 class Instrument(object):
     __slots__ = ('root_variation',)
 
-    def __init__(self, definition):
-        self.root_variation = Variation(definition)
+    def __init__(self, definition_file):
+        with open(definition_file, 'r') as stream:
+            instrument = yaml.load(stream)
+        self.root_variation = Variation.from_definition(instrument['character'])
 
     def render_tone(self, pitch, length, stress, properties=None):
 
@@ -32,11 +35,11 @@ class Instrument(object):
             properties = {}
 
         sg = self.root_variation.sound_generator_for(note)
-        tone = sg.render(pitch, length, {
+        tone = sg.render(pitch, length, dict(
             (x, properties[x])
                 for x in ('shaped_am', 'shaped_fm')
                 if x in properties
-        })
+        ))
         normalize_amplitude(tone)
 
         return tone
@@ -83,13 +86,16 @@ class Variation(object):
     @classmethod
     def from_definition(cls, kwargs, upper=None):
 
+        if not isinstance(kwargs, dict):
+           raise TypeError("Not a dictionary: " + kwargs)
+
         if upper is None:
             upper = root_osc
 
         if not 'TYPE' in kwargs:
             Composer = None
         else:
-            Composer = getattr(combinators, kwargs['TYPE'])
+            Composer = getattr(combinators, kwargs.pop('TYPE'))
 
         attribute = kwargs.pop('ATTR', None)
 
@@ -101,9 +107,11 @@ class Variation(object):
             timbre = Shape.from_string(timbre)
 
         for attr in kwargs.keys():
-            if re.match('[a-z]\w+$', attr):
+            if not isinstance(attr, str):
+               continue
+            elif re.match('[a-z]\w+$', attr):
                 label_specs[attr] = kwargs.pop(attr)
-            elif re.match('[A-Z][A-Z]?$', attr):
+            elif re.match('[A-Z][A-Z]{0,2}$', attr):
                 base_args[attr] = kwargs.pop(attr)
 
         self = cls(
@@ -120,7 +128,7 @@ class Variation(object):
         if Composer:
             self._variation_composer = Composer( attribute, dict(
                 (
-                  re.sub(r'^=', key)
+                  re.sub(r'^=', key, '')
                       if isinstance(key, str) else key,
                   Variation.from_definition(value, self)
                 ) for key, value in kwargs.items()
@@ -188,8 +196,8 @@ class Variation(object):
                 sympartial_points.append( (freq_factor, volume, sympartial ) )
 
         boundary_symp = None if (
-            sympartial_points[0] or sympartial_points[-1]
-        ) else self.base.sympartial
+            sympartial_points[0][2] or sympartial_points[-1][2]
+        ) else self.base.sympartial()
 
         soundgen = SoundGenerator(
             boundary_symp, sympartial_points, boundary_symp

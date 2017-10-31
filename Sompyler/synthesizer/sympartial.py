@@ -75,6 +75,7 @@ class Sympartial(object):
         if left is right:
             return left
 
+        args = {}
         for each in ('envelope', 'oscillator'):
             l = getattr(left, each)
             r = getattr(right, each)

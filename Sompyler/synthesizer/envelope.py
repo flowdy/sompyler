@@ -99,7 +99,7 @@ class Envelope(object):
         """
 
         overlength = duration and duration > self.attack.length
-        fill = duration - self.attack.length if overlength else 0
+        fill = (duration - self.attack.length) if overlength else 0
     
         sustain = self.sustain or CONSTANT_SUSTAIN
 

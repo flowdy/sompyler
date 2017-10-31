@@ -34,6 +34,13 @@ class Point(object):
 
     def __len__(self): return 2
 
+    def __repr__(self):
+        try:
+            ext = self.is_sharp
+        except:
+            ext = self.symp
+        return "{}({},{},{})".format(type(self).__name__, self.x, self.y, repr(ext))
+
 class BezierEdgePoint(Point):
     __slots__ = ['is_sharp']
     def __init__(self, x, y, is_sharp):
@@ -55,7 +62,11 @@ class BezierEdgePoint(Point):
     @classmethod
     def weighted_average(cls, a, dist, b):
         if not isinstance(b, BezierEdgePoint):
-            raise TypeError("Points are not compatible")
+            raise TypeError(
+                "Points are not compatible: {} vs. {}".format(
+                    repr(a), repr(b)
+                )
+            )
         x, y = super(BezierEdgePoint, cls)._weighted_average(a, dist, b)
         if a.is_sharp == b.is_sharp:
             is_sharp = a.is_sharp
@@ -87,16 +98,12 @@ class SympartialPoint(Point):
 
     @classmethod
     def weighted_average(cls, a, dist, b):
-        if not isinstance(b, BezierEdgePoint):
+        if not isinstance(b, SympartialPoint):
             raise TypeError("Points are not compatible")
         x, y = super(SympartialPoint, cls)._weighted_average(a, dist, b)
-        if a.is_sharp == b.is_sharp:
-            is_sharp = a.is_sharp
-        elif a.is_sharp:
-            is_sharp = dist
-        elif b.is_sharp:
-            is_sharp = 1 - dist
+        if a.symp == b.symp:
+            symp = a.symp
         else:
-            raise RuntimeError("Impossible else entered")
-        return cls(x, y, is_sharp)
+            symp = a.symp.weighted_average( a.symp, dist, b.symp )
+        return cls(x, y, symp)
 

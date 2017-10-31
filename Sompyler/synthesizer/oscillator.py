@@ -66,7 +66,9 @@ class Oscillator:
 
     def derive (self, **args):
 
-        for i in 'amplitude_modulation', 'frequency_modulation', 'wave_shape':
+        for i in (
+                'osc_func', 'amplitude_modulation',
+                'frequency_modulation', 'wave_shape'):
             if args.get(i): continue
             mine = getattr(self, i)
             if mine:

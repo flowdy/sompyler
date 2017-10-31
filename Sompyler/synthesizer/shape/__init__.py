@@ -22,12 +22,12 @@ class Shape(object):
 
         self.coords = [ BezierEdgePoint(0, 1 if span[1] else 0, True) ]
         self.y_max = y_max
-        x_last = 0
+        x_last = -1
 
         for n, i in enumerate(coords):
-            if x_last > i[0]:
+            if not x_last < i[0]:
                 raise Exception(
-                    "Wrong order in coordinates: {} not {} in {}".format(
+                    "Wrong order in coordinates: {} not less than {} in {}".format(
                         x_last, i[0], coords
                     )
                 )
@@ -48,7 +48,7 @@ class Shape(object):
                 prior = coords[n-1] if n else self.coords[0]
                 if n < len(coords)-1:
                     nbp = coords[n+1]
-                    d = distance_c_to_ab( prior, nbp, i )
+                    d = orthogonal_distance_C_to_ABsecant( prior, nbp, i )
                     d0 = Point.distance( prior, nbp )
                     ext = d / (d + d0) > ext
                 else:
@@ -137,11 +137,12 @@ class Shape(object):
         base_length = self.length if is_length_factor else 1
 
         if adj_length and isinstance(adj_length, bool):
-            unit_length *= y_scale
+            base_length *= y_scale
             coords = self.new_coords(y_scale=y_scale) 
             length = int( round(unit_length * base_length) )
         else:
             coords = self.new_coords(adj_length, y_scale)
+            if adj_length: base_length = adj_length
             length = int( round(unit_length * base_length) )
 
         if not length: return []
@@ -341,7 +342,7 @@ class Shape(object):
             r = rcoords[i]
             coords.append(l.weighted_average( l, dist, r ))
 
-        return Shape( (adj_length, coords[0].y), *coords )
+        return Shape( (adj_length, coords[0].y), *coords[1:] )
 
     def edgy (self):
         return (self.coords[0].y, self.coords[-1].y)
@@ -358,39 +359,39 @@ class Shape(object):
         """
         self.coords = Shape._adjust_coords_num( self.coords, num )
 
-    @staticmethod
-    def _adjust_coords_num (coords, num):
+    @classmethod
+    def _adjust_coords_num (cls, coords, num):
         if num > len(coords):
-            return Shape._raise_coords( coords, num - len(coords) )
+            return cls._raise_coords( coords, num - len(coords) )
         elif num < len(coords):
-            return Shape._lessen_coords( coords, len(coords) - num )
+            return cls._lessen_coords( coords, len(coords) - num )
         else:
             return coords
 
     def lessen_coords (self, by_num):
-        self.coords = Shape._lessen_coords( self.coords, by_num)
+        self.coords = self._lessen_coords( self.coords, by_num)
 
-    @staticmethod
-    def _lessen_coords (coords, by_num):
+    @classmethod
+    def _lessen_coords (cls, coords, by_num):
 
         distances = {}
         for i, a in enumerate(coords[:-2]):
             c = coords[i+1]
             b = coords[i+2]
-            distances[c] = distance_c_to_ab(a, b, c)
+            distances[c] = orthogonal_distance_C_to_ABsecant(a, b, c)
 
         kept_dist = sorted(distances.items(), key=itemgetter(1))[by_num:]
         kept_dist.append( (coords[0], 1) )
         kept_dist.append( (coords[-1], 1) )
         distances = dict( kept_dist )
 
-        return [ c for c in coords if distances.get(c) ]
+        return [ c for c in coords if c in distances ]
 
     def raise_coords (self, by_num):
-        self.coords = Shape._raise_coords( self.coords, by_num)
+        self.coords = self._raise_coords( self.coords, by_num)
 
-    @staticmethod
-    def _raise_coords (coords, by_num):
+    @classmethod
+    def _raise_coords (cls, coords, by_num):
 
         distances = {}
         c_last = coords[0]
@@ -423,7 +424,6 @@ class Shape(object):
             sum_coords += inter_coords
 
             xlen = c.x - coords[i].x
-            interval = xlen / (inter_coords + 1)
 
             for step in range(inter_coords):
                 new_coords.append( coords[i].weighted_average(
@@ -459,7 +459,7 @@ class Shape(object):
 
         return Shape( self.lengh, *coords )
 
-def distance_c_to_ab(a, b, c):
+def orthogonal_distance_C_to_ABsecant(a, b, c):
     n_ab = (b.y - a.y) / (b.x - a.x)
     if n_ab:
         n_dc = (a.x - b.x) / (b.y - a.y)

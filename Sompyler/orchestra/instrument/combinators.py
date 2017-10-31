@@ -82,6 +82,7 @@ def merge( attr, variants ):
             return
 
         leftv = None
+        lastval = None
         for v in attr_checks:
 
             if attrval == v[0]:
@@ -90,12 +91,16 @@ def merge( attr, variants ):
                 if leftv is None:
                     return v[1].sound_generator_for(note)
                 else:
-                    dist = (attrval - leftv) * 1.0 / (v[0] - leftv)
-                    return leftv.weighted_average( leftv, dist, v[1] )
+                    dist = (attrval - lastval) * 1.0 / (v[0] - lastval)
+                    left_sg = leftv.sound_generator_for(note)
+                    right_sg = v[1].sound_generator_for(note)
+                    return left_sg.weighted_average( left_sg, dist, right_sg )
             else:
-                leftv = v[1]
+                lastval, leftv = v
 
-        return leftv
+        raise Exception("No sound generator matching for that note")
+
+        return leftv.sound_generator_for(note)
 
     return _composer
 

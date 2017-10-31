@@ -2,20 +2,25 @@
 from __future__ import division
 from Sompyler.synthesizer.sympartial import Sympartial, Oscillator, log_to_linear
 from Sompyler.synthesizer.envelope import Envelope, Shape
-from Sompyler.synthesizer import CENT_PER_OCTAVE
-from itertools import izip
-from copy import copy
+from Sompyler.synthesizer.shape.point import SympartialPoint
 import numpy as np
 import re
 
 class SoundGenerator(Shape):
-    __slots__ = ['heard_to_base_freq_divisor']
-    def __init__(self, initial, the_list, term, heard_to_base_freq_divisor=1):
+    __slots__ = tuple()
+
+    def __init__(self, initial, the_list, term):
     
         tmp = []
     
         if initial is None:
-            initial = next(p[2] for p in the_list if p[2] is not None)
+            try:
+                initial = next(p[2] for p in the_list if p[2] is not None)
+            except StopIteration as e:
+                raise RuntimeError(
+                    "No sympartial found for sound_generator from "
+                  + repr(the_list)
+                )
         mylist = [(0.0, 0, initial)]
         mylist.extend(p for p in the_list)
     
@@ -55,17 +60,9 @@ class SoundGenerator(Shape):
             last_symp = symp
     
         super(SoundGenerator, self).__init__((mylist[-2][0], 0), *mylist[1:-1])
+        del self.coords[0]
 
-        # TODO: more research and experimenting on that one. It is questionable that we can
-        # calculate that so everyone hears the same pitch. For the time being, you can set
-        # it manually if you want.
-        # Numb weighted average makes tones too low to my ears:
-        #   _heard_to_base_freq_divisor(coords)
-        self.heard_to_base_freq_divisor = heard_to_base_freq_divisor 
-
-    def render(self, heard_freq, duration=0, args=None):
-
-        base_freq = heard_freq / self.heard_to_base_freq_divisor
+    def render(self, base_freq, duration=0, args=None):
 
         if args is None: args = {}
         elif not isinstance(args, dict):
@@ -74,7 +71,7 @@ class SoundGenerator(Shape):
                  type(args)
              ))
         samples = np.array([0.0])
-        sympit = self.iterate_coords(1)
+        sympit = self.iterate_coords()
         total_share = 0
 
         for s in sympit:
@@ -91,13 +88,98 @@ class SoundGenerator(Shape):
             
         return samples
 
-def _heard_to_base_freq_divisor (freq_factors):
-    total = 0
-    weights = 0
-    for c in freq_factors.iterate_coords():
-        sp = log_to_linear( c.y )
-        total += c.x * sp
-        weights += sp
 
-    return total / weights
+    @classmethod
+    def weighted_average(cls, *args):
+
+        self = super(SoundGenerator, cls).weighted_average(*args)
+        self.__class__ = cls
+        del self.coords[0]
+
+        return self
+
+    @classmethod
+    def _raise_coords(cls, coords, by_num):
+        """ Insert coordinates with y=0 between those with the greatest
+            distance to each other. The new coordinates, and the neighbours
+            are equally distant.
+        """
+
+        distances = {}
+        c_last = coords[0]
+
+        new_coords = [c_last]
+
+        for c in coords[1:]:
+            distances[c] = c.x - c_last.x
+            c_last = c
+
+        sum_dist = sum( d for d in distances.values() )
+
+        remainders = []
+        rem_by_num = by_num
+        for (c, dist) in distances.items():
+             scaled = dist / sum_dist * by_num
+             int_scaled = int(scaled)
+             remainders.append( (c, scaled - int_scaled) )
+             distances[c] = int_scaled
+             rem_by_num -= int_scaled
+
+        for (c, _) in sorted(
+            remainders, key=itemgetter(1), reverse=True
+        )[0:rem_by_num]:
+            distances[c] += 1
+
+        sum_coords = 0
+        for i, c in enumerate(coords[1:]):
+            inter_coords = distances[c]
+            sum_coords += inter_coords
+
+            xlen = c.x - coords[i].x
+
+            for step in range(inter_coords):
+                dist = (step+1) / (inter_coords+1) * 1
+                x = (1 - dist) * coords[i].x + dist * c.x
+                s = c.symp.weighted_average( coords[i].symp, dist, c.symp )
+                new_coords.append( SympartialPoint(x, 0, s) )
+
+            new_coords.append(c)
+
+        assert sum_coords == by_num
+
+        return new_coords
+
+    @classmethod
+    def _lessen_coords (cls, coords, by_num):
+        """ The greater the value on the x-axis, the less its difference to
+            x of the previous coordinate and the less also the amplitude (y),
+            the more likely is that a coordinate gets dropped.
+        """
+
+        distances = {}
+
+        for i, c in enumerate(coords[1:]):
+            distances[c] = ( (c.x - coords[i].x) * c.y / c.x, coords[i] )
+
+        sorted_distance_to_prev = [
+                (c, d[1]) for c, d in sorted(
+                    distances.items(), key=lambda i: i[1][0]
+                )
+            ]
+
+        new_coords = []
+        for c, prev in sorted_distances_to_prev[0:by_num]:
+            dist = 1.0 * ( c.y / (prev.y or c.y) )
+            new_coords.append(
+                c.weighted_average( prev, dist, c )
+            )
+            if c in distances:
+                distances.drop(c)
+            if prev in distances:
+                distances.drop(prev)
+
+        new_coords.extend( c for c in distances )
+        new_coords.sort(lambda c: c.x)
+        return new_coords
+
 
