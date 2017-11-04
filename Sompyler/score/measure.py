@@ -20,10 +20,10 @@ class Measure(object):
     )
 
     def __init__(
-        self, structure, prev
+        self, structure, stage, prev
     ):
 
-        meta = structure.pop('meta', {})
+        meta = structure.pop('_meta', {})
 
         for prop in (
                 'ticks_per_minute', 'stress_pattern',
@@ -60,6 +60,8 @@ class Measure(object):
         self.lower_stress_bound = stress_range(lower_stress_bound)
         self.upper_stress_bound = stress_range(upper_stress_bound)
 
+        self.structure = structure
+        self.voices = stage.voices
 
     def calculate_seconds_from_ticks( self, offset, length=None ):
 
@@ -69,11 +71,9 @@ class Measure(object):
                 else 0
         )
         if offset > max_offset:
-            raise ValueError("Offset exceeding 1")
+            raise ValueError("Offset exceeding " + max_offset)
 
-        if self.measure_cut > 0:
-            offset -= self.measure_cut
-        if offset < 0:
+        if offset < self.measure_cut > 0:
             raise ValueError("Offset too low")
 
         exp_div = 1.0 / self.stressor.cumlen
@@ -116,15 +116,15 @@ class Measure(object):
 
         # TODO process _meta (stress_pattern, tempo)
 
-        for ch_name, ch_data in measure.items():
+        _meta = {}
+        for ch_name, ch_data in measure.structure.items():
             # merge general and channel-specific _meta, if any
-            _meta = { measure.meta.items() }
             ch_meta = ch_data.pop('_meta', {})
             if 'stressor' in ch_meta:
                 ch_meta['stressor'] = Stressor( ch_meta['stressor'] )
                 if not ch_meta['stressor'].cumlen == self.stressor.cumlen:
                     raise RuntimeError(
-                        "Channel bound measure stressor has other length"
+                        "Voice bound measure stressor has other length"
                       + " than global measure"
                     )
             else:
@@ -134,20 +134,20 @@ class Measure(object):
                 if prop in ch_meta:
                     _meta[prop] = ch_meta[prop]
 
-            yield ChannelBoundMeasure(measure, channel, ch_data, **_meta)
+            yield VoiceBoundMeasure(measure, self.voices[ch_name], ch_data, **_meta)
 
 
-class ChannelBoundMeasure(Measure):
+class VoiceBoundMeasure(Measure):
     __slots__ = ('measure', 'channel', 'chords')
 
     def __init__(
-            self, measure, channel, ch_data,
+            self, measure, voice, ch_data,
             stressor=None,
             lower_stress_bound=None,
             upper_stress_bound=None
         ):
         self.measure  = measure
-        self.channel  = channel
+        self.voice    = voice
         self.stressor = stressor or measure.stressor
         self.lower_stress_bound = (
             stress_range(lower_stress_bound)
@@ -172,7 +172,7 @@ class ChannelBoundMeasure(Measure):
                 chord = [note]
 
             yield Chord(
-                self.offset, offset, self.channel,
+                self.offset, offset, self.voice,
                 self.stressor.of(offset),
                 calc_span, chord
             )

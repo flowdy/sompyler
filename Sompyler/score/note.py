@@ -26,7 +26,7 @@ class Note(object):
             offset_ticks, properties.pop('length')
         )
         offset += total_offset
-        self.occurrences = { float(offset): position }
+        self.occurrences = [ (float(offset), position) ]
         self.properties = properties
 
         weight = properties.pop('weight')
@@ -39,8 +39,8 @@ class Note(object):
                 )
             else:
                 raise SyntaxError(
-                    "Weight is '" + weight
-                  + ", expecting integer or integer*stress_factor"
+                    "Weight must be integer or 'integer*float', "
+                    "second representing extra stress_factor"
                 )
         else:
             self.stress = (float(weight), stress)
@@ -55,28 +55,47 @@ class Note(object):
         else:
             raise SyntaxError(
                 properties['pitch']
-                + ": Could not recognize consist of note and "
+                + ": Could not recognize pitch of note, "
                 + "optional deviation in cent"
             )
 
+        del properties['pitch']
+
         return
         
+    def _sorted_properties_tuple(self):
 
-    def hash_same_wherever_occurs(self):
+        return tuple(
+            sorted(
+                (i for i in self.properties.items()),
+                key=lambda i: i[0]
+            )
+        )
+
+    def __hash__(self):
 
         relevant_data = (
                 self.instrument, self.stress, self.pitch, self.length
-            ) + tuple(sorted(
-                    (i for i in self.properties.items()),
-                    key=lambda i: i[0]
-                ))
+            ) + self._sorted_properties_tuple()
 
         return hash(relevant_data)
 
-    def __repr__(self):
+    def __eq__(self, other):
+
+        return (
+           self.instrument == other.instrument
+           and self.pitch  == other.pitch
+           and self.stress == other.stress
+           and self.length == other.length
+           and self._sorted_properties_tuple()
+            == other._sorted_properties_tuple()
+        )
+
+    def __str__(self):
         return ( "Note played by " + self.instrument
                + " at pitch " + note.pitch + "Hz"
                + " with stress " + note.stress
                + ", " + note.length + "s long"
+               + " (Further properties: ", str(self.properties), ")"
                )
               
