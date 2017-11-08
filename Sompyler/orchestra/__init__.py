@@ -2,12 +2,12 @@ from __future__ import print_function
 from Sompyler.orchestra.instrument import Instrument
 from Sompyler.score import Score
 from tempfile import mkdtemp
-import sys, os, numpy, traceback
+import sys, os, numpy, traceback # , pdb
 
 cached_files_dir = None
 
 
-def play(score_fh, workers=None, verbosity=False):
+def play(score_fh, workers=None, monitor=None):
 
     max_end_offset = 0
 
@@ -30,19 +30,22 @@ def play(score_fh, workers=None, verbosity=False):
 
     score = Score(score_fh)
 
+    mon = monitor or (lambda n, o, d: None)
     for note_id, length in imap(render_tone, score.notes_feed_1st_pass(mon)):
         
         if length is not None:
-            score.set_length_for(n_hash, length) 
+            score.set_length_for_note(note_id, length) 
         else:
             raise NoteRenderingFailure(note_id)
 
     total_length, distinct_notes_iter = score.notes_feed_2nd_pass()
 
-    samples = numpy.zeros( (2, total_length) )
+    samples = numpy.zeros( (total_length, 2) )
 
     for note_id, occurrences in distinct_notes_iter:
-        tone = numpy.load( tone_id_to_filename(note_id, "snd") )
+        tone = numpy.load(
+            tone_id_to_filename(note_id, "snd.npy")
+        ).reshape(-1, 1)
         for slc, position in occurrences:
             samples[slc] += position * tone
 
@@ -71,12 +74,12 @@ def render_tone(info):
         tone = instrument.render_tone(
             pitch, length, stress, properties
         )
-        numpy.save(tone, tone_id_to_filename(note_id, "snd") )
+        numpy.save(tone_id_to_filename(note_id, "snd"), tone )
         return note_id, len(tone)
 
     except Exception as e:
         with open(tone_id_to_filename(note_id, "err"), "w") as err:
-            f.write(traceback.format_exc(err))
+            err.write(traceback.format_exc(e))
         return note_id, None
 
 
@@ -89,5 +92,5 @@ class NoteRenderingFailure(Exception):
         self.note_id = note_id
 
     def orig_info(self):
-        with open(tone_hash_to_filename(note_id, "err"), "r") as f:
+        with open(tone_id_to_filename(self.note_id, "err"), "r") as f:
             return f.read()

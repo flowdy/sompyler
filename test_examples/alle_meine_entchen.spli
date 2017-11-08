@@ -1,8 +1,7 @@
 title: Alle meine Entchen
 author: unknown
-room: 1|0;1|0
-channels:
-    piano: dev-piano 1L0
+stage:
+    piano: 1|1 0 dev-piano
 ---
 _meta:
     stress_pattern: 2,0,1,0;1,0
@@ -10,38 +9,38 @@ _meta:
     lower_stress_bound: 85
     upper_stress_bound: 100
 piano:
-    0: C4 1	# Al-
-    1: D4 1	# -le
-    2: E4 1	# mei-
-    3: F4 1	# -ne
-    4: G4 2	# Ent-
-    6: G4 2	# chen
+    0: C4 1    # Al-
+    1: D4 1    # -le
+    2: E4 1    # mei-
+    3: F4 1    # -ne
+    4: G4 2    # Ent-
+    6: G4 2    # -chen
 ---
 piano:
-    0: A4 1	# schwim-
-    1: A4 1	# -men
-    2: A4 1	# auf
-    3: A4 1	# dem
-    4: G4 4	# See,
+    0: A4 1    # schwim-
+    1: A4 1    # -men
+    2: A4 1    # auf
+    3: A4 1    # dem
+    4: G4 4    # See,
 ---
 piano:
-    0: A4 1	# schwim-
-    1: A4 1	# -men
-    2: A4 1	# auf
-    3: A4 1	# dem
-    4: G4 4	# See,
+    0: A4 1    # schwim-
+    1: A4 1    # -men
+    2: A4 1    # auf
+    3: A4 1    # dem
+    4: G4 4    # See,
 ---
 piano:
-    0: F4 1	# Köpf-
-    1: F4 1	# -chen
-    2: F4 1	# in
-    3: F4 1	# das
-    4: E4 2	# Was-
-    6: E4 2	# -ser,
+    0: F4 1    # Köpf-
+    1: F4 1    # -chen
+    2: F4 1    # in
+    3: F4 1    # das
+    4: E4 2    # Was-
+    6: E4 2    # -ser,
 ---
 piano:
-    0: G4 1	# Schwänz-
-    1: G4 1	# -chen
-    2: G4 1	# in
-    3: G4 1	# die
-    4: C4 4	# Höh.
+    0: G4 1    # Schwänz-
+    1: G4 1    # -chen
+    2: G4 1    # in
+    3: G4 1    # die
+    4: C4 4    # Höh.

@@ -4,11 +4,11 @@ class Chord(object):
 
     def __init__(
            self, total_offset, measure_offset, voice,
-           stress, notes
+           stress, calc_span, notes
         ):
 
         self.total_offset = total_offset
-        self.offset       = offset
+        self.offset_ticks = measure_offset
         self.voice        = voice
         self.stress       = stress
         self.calc_span    = calc_span
@@ -19,7 +19,7 @@ class Chord(object):
         for note in self.notes:
             yield Note(
                 instrument=self.voice.instrument,
-                stress=stress,
+                stress=self.stress,
                 properties=note,
                 calc_span=self.calc_span,
                 total_offset=self.total_offset,

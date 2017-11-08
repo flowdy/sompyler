@@ -1,24 +1,25 @@
-import re
+import re, pdb
 
 class Stage(object):
 
     def __init__( self, space, voices, tuner ):
 
-        m = re.match(r'(\d+):(\d+)|(\d+):(\d+)', space)
+        m = re.match(r'(\d+):(\d+)\|(\d+):(\d+)', space)
         if m:
             space = {
-                'varvol': float( m.group(1) ),
-                'basevol': float( m.group(2) ),
+                'varvol': int( m.group(1) ),
+                'basevol': int( m.group(2) ),
                 'vardir': float( m.group(3) ),
                 'framedir': float( m.group(4) ),
             }
-            space['spread'] = vardir / (vardir + framedir or 1)
         else:
             raise SyntaxError("room_spread: VARVOL:BASE_VOL|VARDIR:FRAMEDIR")
         
         sum_intensities = 0
 
         self.voices = {}
+
+        # pdb.set_trace()
 
         for name, ch_data in voices.items():
             if isinstance(ch_data, str):
@@ -32,46 +33,46 @@ class Stage(object):
                  )
                  tuning = tuner(tuning)
                  
-            self.voices[ name ] = Voice(
-                space, direction, distance, instrument, tuning
+            voice = self.voices[ name ] = Voice(
+                space, direction, float(distance), instrument, tuning
             )
 
             sum_intensities += voice.intensity
 
-        for voice in self.voices.items():
-            i = voice.intensity / sum_intensities * 1.0
+        for voice in self.voices.values():
+            i = voice.intensity / sum_intensities
             left, right = voice.position
             voice.position = ( left/i, right/i )
 
 
 class Voice(object):
-    __slots__ = ('tuning', 'instrument', 'position')
+    __slots__ = ('tuning', 'instrument', 'position', 'intensity')
 
     def __init__(self, space, direction, distance, instrument, tuning):
 
         self.tuning     = tuning
         self.instrument = instrument
 
-        if distance > space['varvol']:
+        varvol = space['varvol']
+        basevol = space['basevol']
+        vardir = space['vardir']
+        framedir = space['framedir']
+
+        if distance > varvol:
             raise ValueError("distance cannot be greater than varvol")
         
-        self.intensity = (space['basevol'] + distance) 
+        self.intensity = basevol + varvol - distance
 
-        m = re.match(r'(\d+)([RL])(\d+)', direction)
+        m = re.match(r'(\d+)\|(\d+)', direction)
         if m:
-            more = float(m.group(1))
-            direction = m.group(2)
-            less = float(m.group(3))
+            left = float(m.group(1))
+            right = float(m.group(2))
+            both = left + right
         else:
-            raise SyntaxError("direction: 0-100[RL]0-100")
+            raise SyntaxError("direction: 0-100|0-100")
         
-        dir = more / ( more + less or 1 )
-        right = 1 + dir * space['spread'] * (1 if direction == 'R' else -1 )
-        left  = 1 + dir * space['spread'] * (1 if direction == 'L' else -1 )
+        left  = (framedir + left/both*vardir ) / (framedir + vardir)
+        right = (framedir + right/both*vardir) / (framedir + vardir)
         max_ampl = max(left, right)
 
         self.position = (left / max_ampl, right / max_ampl)
-
-
-
-

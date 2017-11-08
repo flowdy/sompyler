@@ -1,89 +1,89 @@
 # SOMPYLER TONE SCALE: 440D49/12
 ,,A A0
-,,Ais ,,B A#0 Bb0
+,,Ais ,,B A#0 As0 Bb0
 ,,H B0
 ,C C1
-,Cis ,Des C#1 Db1
+,Cis ,Des C#1 Cs1 Db1
 ,D D1
-,Dis ,Es D#1 Eb1
+,Dis ,Es D#1 Ds1 Eb1
 ,E E1
 ,F F1
-,Fis ,Ges F#1 Gb1
+,Fis ,Ges F#1 Fs1 Gb1
 ,G G1
-,Gis ,As G#1 Ab1
+,Gis ,As G#1 Gs1 Ab1
 ,A A1
-,Ais ,B A#1 Bb1
+,Ais ,B A#1 As1 Bb1
 ,H B1
 C C2
-Cis Des C#2 Db2
+Cis Des C#2 Cs2 Db2
 D D2
-Dis Es D#2 Eb2
+Dis Es D#2 Ds2 Eb2
 E E2
 F F2
-Fis Ges F#2 Gb2
+Fis Ges F#2 Fs2 Gb2
 G G2
-Gis As G#2 Ab2
+Gis As G#2 Gs2 Ab2
 A A2
-Ais B A#2 Bb2
+Ais B A#2 As2 Bb2
 H B2
 c C3
-cis des C#3 Db3
+cis des C#3 Cs3 Db3
 d D3
-dis es D#3 Eb3
+dis es D#3 Ds3 Eb3
 e E3
 f F3
-fis ges F#3 Gb3
+fis ges F#3 Fs3 Gb3
 g G3
-gis as G#3 Ab3
+gis as G#3 Gs3 Ab3
 a A3
-ais b A#3 Bb3
+ais b A#3 As3 Bb3
 h B3
 c’ C4
-cis’ des’ C#4 Db4
+cis’ des’ C#4 Cs4 Db4
 d’ D4
-dis’ es’ D#4 Eb4
+dis’ es’ D#4 Ds4 Eb4
 e’ E4
 f’ F4
-fis’ ges’ F#4 Gb4
+fis’ ges’ F#4 Fs4 Gb4
 g’ G4
-gis’ as’ G#4 Ab4
+gis’ as’ G#4 Gs4 Ab4
 a’ A4
-ais’ b’ A#4 Bb4
+ais’ b’ A#4 As4 Bb4
 h’ B4
 c’’ C5
-cis’’ des’’ C#5 Db5
+cis’’ des’’ C#5 Cs5 Db5
 d’’ D5
-dis’’ es’’ D#5 Eb5
+dis’’ es’’ D#5 Ds5 Eb5
 e’’ E5
 f’’ F5
-fis’’ ges’’ F#5 Gb5
+fis’’ ges’’ F#5 Fs5 Gb5
 g’’ G5
-gis’’ as’’ G#5 Ab5
+gis’’ as’’ G#5 Gs5 Ab5
 a’’ A5
-ais’’ b’’ A#5 Bb5
+ais’’ b’’ A#5 As5 Bb5
 h’’ B5
 c’’’ C6
-cis’’’ des’’’ C#6 Db6
+cis’’’ des’’’ C#6 Cs6 Db6
 d’’’ D6
-dis’’’ es’’’ D#6 Eb6
+dis’’’ es’’’ D#6 Ds6 Eb6
 e’’’ E6
 f’’’ F6
-fis’’’ ges’’’ F#6 Gb6
+fis’’’ ges’’’ F#6 Fs6 Gb6
 g’’’ G6
-gis’’’ as’’’ G#6 Ab6
+gis’’’ as’’’ G#6 Gs6 Ab6
 a’’’ A6
-ais’’’ b’’’ A#6 Bb6
+ais’’’ b’’’ A#6 As6 Bb6
 h’’’ B6
 c’’’’ C7
-cis’’’’ des’’’’ C#7 Db7
+cis’’’’ des’’’’ C#7 Cs7 Db7
 d’’’’ D7
-dis’’’’ es’’’’ D#7 Eb7
+dis’’’’ es’’’’ D#7 Ds7 Eb7
 e’’’’ E7
 f’’’’ F7
-fis’’’’ ges’’’’ F#7 Gb7
+fis’’’’ ges’’’’ F#7 Fs7 Gb7
 g’’’’ G7
-gis’’’’ as’’’’ G#7 Ab7
+gis’’’’ as’’’’ G#7 Gs7 Ab7
 a’’’’ A7
-ais’’’’ b’’’’ A#7 Bb7
+ais’’’’ b’’’’ A#7 As7 Bb7
 h’’’’ B7
 c’’’’’ C8

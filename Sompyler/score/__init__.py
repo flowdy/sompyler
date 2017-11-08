@@ -4,15 +4,17 @@ from Sompyler.tone_mapper import get_mapper_from
 from Sompyler.score.measure import Measure
 from Sompyler.score.stressor import Stressor
 from Sompyler.score.stage import Stage
-import re
+import re, sys, numpy
+from os import path
 
 class Score(object):
 
     def __init__(self, file):
 
+        self._filename = file.name
         self._yamliter = load_all(file)
 
-        metadata = next(yamliter)
+        metadata = next(self._yamliter)
 
         tuner = get_mapper_from(
             metadata.get('tone_mapping')
@@ -20,7 +22,7 @@ class Score(object):
         ) 
 
         self.stage = Stage(
-            metadata['stage'].drop('_space', '1:0|1:0'),
+            metadata['stage'].pop('_space', '1:0|1:0'),
             metadata['stage'],
             tuner
         )
@@ -30,11 +32,14 @@ class Score(object):
 
     def notes_feed_1st_pass(self, monitor=lambda: None):
 
-        prev_measure = None
-
         def flattened_notes():
+
+            prev_measure = None
+
             for m in self._yamliter:
-                m = Measure(m, stage=self.stage, previous=prev_measure)
+                m = Measure(m, stage=self.stage, previous=prev_measure,
+                        **m.pop('_meta', {})
+                )
 
                 for vbmeasure in m:
                     vbnotes = []
@@ -59,14 +64,19 @@ class Score(object):
 
         def get_abspath_to( instrument_spec_fn ):
         
-            score_directory = os.path.dirname( os.path.abspath(score_file) )
+            score_directory = path.dirname( path.abspath(self._filename) )
         
             fn = instrument_spec_fn + '.spli'
         
-            if not os.path.isabs(fn):
-                absfile = os.path.join(sys.path[0], 'instruments', fn)
-                if not os.path.isfile(absfile):
-                    absfile = os.path.join(score_directory, fn)
+            if not path.isabs(fn):
+                absfile = path.join(score_directory, fn)
+                if not path.isfile(absfile):
+                    absfile = path.join(sys.path[0], 'instruments', fn)
+                if not path.isfile(absfile):
+                    raise RuntimeException( instrument_spec_fn
+                        + " is neither found in same directory as the score "
+                          " file nor in the global instruments/ directory "
+                   )
         
             return absfile
 
@@ -84,36 +94,35 @@ class Score(object):
                 note_id = len(self._distinct_notes)
                 self._distinct_notes.append(note)
                 self._distinct_notes[0][ note ] = note_id
-                instrument_spec_fn = get_abspath_to( note.instrument )
                 monitor( note_id, note.occurrences[0], str(note) )
 
                 yield (
-                    note_id, instrument_spec_fn, note.pitch,
+                    note_id, get_abspath_to(note.instrument), note.pitch,
                     note.length, note.stress, note.properties
                 )
 
-    def set_length_for_note(self, note_id, length):
-        self._distinct_notes[ note_id ].length = length
+    def set_length_for_note(self, note_id, num_samples):
+        self._distinct_notes[ note_id ].num_samples = num_samples
 
     def notes_feed_2nd_pass(self):
 
-        def occiter(occ):
-            for offset, position in occurrences:
-                begin = int(round( SAMPLING_RATE * offset ))
-                end   = begin + int(length) + 1
-                yield (slice(begin, end), np.ndarray([position]))
+        def occiter(occ, num_samples):
+            for offset, position in occ:
+                offset = int(round( SAMPLING_RATE * offset ))
+                position = numpy.array([position]).repeat(num_samples, axis=0)
+                yield (slice(offset, offset + num_samples), position)
 
         total_end_offset = 0
-        for note in self._distinct_notes:
+        for note in self._distinct_notes[1:]:
 
             end_offset = int(round(
                 SAMPLING_RATE * max(o[0] for o in note.occurrences)
-            )) + note.length
+            )) + note.num_samples
 
             if end_offset > total_end_offset:
                 total_end_offset = end_offset
 
         return total_end_offset, (
-            ( num+1, occiter(note.occurrences) ) for num, note
-                in enumerate(self._distinct_notes[1:])
+            ( num+1, occiter(note.occurrences, note.num_samples) )
+                for num, note in enumerate(self._distinct_notes[1:])
         )

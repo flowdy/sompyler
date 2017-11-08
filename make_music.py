@@ -1,13 +1,13 @@
-from Sompyler.orchestra import play
+from Sompyler.orchestra import play, NoteRenderingFailure
 from Sompyler.synthesizer import normalize_amplitude
 from Sompyler import synthesizer
 import soundfile
-import argparse
+import argparse, sys
 
-def mon(note_id, occurrence, description=None):
+def monitor(note_id, occurrence, description=None):
 
     print ("New note" if description else "Reuse note"),
-    print note_id, "@"+occurrence,
+    print note_id, "@"+str(occurrence),
     if description:
         print ":", description
     else:
@@ -15,25 +15,25 @@ def mon(note_id, occurrence, description=None):
 
 def process(options):
 
-    synthesizer.SAMPLING_RATE = options['samplerate']
-    synthesizer.BYTES_PER_CHANNEL = options['samplewidth']
+    synthesizer.SAMPLING_RATE = options.samplerate
+    synthesizer.BYTES_PER_CHANNEL = options.samplewidth
 
-    format = options['format'] or 'PCM_' + synthesizer.BYTES_PER_CHANNEL
+    subtype = options.format or 'PCM_' + str(8 * synthesizer.BYTES_PER_CHANNEL)
 
     try:
         samples = play(
-            options['score_file'], options['workers'],
+            options.score_file, options.workers,
             monitor if options.verbose else None
         )
     except NoteRenderingFailure as e:
         sys.stderr.write(e.orig_info() + "\n")
         raise
 
-    normalize_amplitude(samples)
+ #   normalize_amplitude(samples)
 
     soundfile.write(
-        options['out_file'], samples,
-        synthesizer.SAMPLING_RATE, format=format
+        options.out_file, samples,
+        synthesizer.SAMPLING_RATE, subtype
     )
 
     return 0
