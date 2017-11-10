@@ -40,7 +40,7 @@ class Instrument(object):
                 for x in ('shaped_am', 'shaped_fm')
                 if x in properties
         ))
-        normalize_amplitude(tone)
+        normalize_amplitude(tone, stress)
 
         return tone
 

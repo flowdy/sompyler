@@ -2,14 +2,16 @@ from Sompyler.score.stressor import Stressor
 from Sompyler.score.chord import Chord
 
 def stress_range(stress):
+
     if isinstance(stress, int):
-        return (stress, 1)
-    elif not isinstance(stress, tuple):
+        return (float(stress), 1)
+    elif isinstance(stress, tuple):
+        return stress
+    else:
         if isinstance(stress, str):
-            stress = [ int(x) for x in stress.split("-", 1) ]
+            stress = [ float(int(x)) for x in stress.split("-", 1) ]
         return (
-            stress[0],
-            stress[1] * 1.0 / stress[0]
+            stress[0], stress[1] / stress[0]
         )
 
 
@@ -115,20 +117,6 @@ class Measure(object):
             return offset_s
 
 
-    def stress_of_tick( self, tick ):
-
-        offset = 1.0 * tick / self.stressor.cumlen
-
-        ls, ls_factor = self.lower_stress_bound
-        ls = ls * ls_factor**offset
-
-        us, us_factor = self.upper_stress_bound
-        us = us * us_factor**offset
-
-        stress = ls * (us/ls) ** self.stressor.of( round(offset) )
-        
-        return stress
-
     def __iter__(self):
 
         for v_name, v_chords in self.structure.items():
@@ -152,7 +140,7 @@ class Measure(object):
 
 
 class VoiceBoundMeasure(Measure):
-    __slots__ = ('measure', 'voice', 'chords')
+    __slots__ = ('measure', 'voice', 'chords', 'offsets')
 
     def __init__(
             self, measure, voice, ch_data,
@@ -164,6 +152,7 @@ class VoiceBoundMeasure(Measure):
         self.measure  = measure
         self.voice    = voice
         self.stressor = stressor or measure.stressor
+        self.offsets  = { tick for tick in ch_data }
 
         self.lower_stress_bound = (
             stress_range(lower_stress_bound)
@@ -179,20 +168,36 @@ class VoiceBoundMeasure(Measure):
 
         self.chords   = ch_data
 
+    def stress_of_tick( self, tick ):
+
+        offset = 1.0 * tick / self.stressor.cumlen
+
+        ls, ls_factor = self.lower_stress_bound
+        ls = ls * ls_factor**offset
+
+        us, us_factor = self.upper_stress_bound
+        us = us * us_factor**offset
+
+        stress = ls * (us/ls) ** self.stressor.of(
+            tick, self.offsets
+        )
+
+        return stress
+
     def __iter__(self):
 
         calc_span = self.measure.calculate_seconds_from_ticks
 
         all_offsets = set( self.chords.values() )
 
-        for offset, chord in self.chords.items():
+        for tick, chord in self.chords.items():
 
             if not isinstance(chord, list):
                 note = chord
                 chord = [note]
 
             yield Chord(
-                self.measure.offset, offset, self.voice,
-                self.stressor.of(offset, all_offsets),
+                self.measure.offset, tick, self.voice,
+                self.stress_of_tick(tick),
                 calc_span, chord
             )
