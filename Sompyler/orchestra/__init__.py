@@ -30,7 +30,7 @@ def play(score_fh, workers=None, monitor=None):
 
     score = Score(score_fh)
 
-    mon = monitor or (lambda n, o, d: None)
+    mon = monitor or (lambda n, o, d=None: None)
     for note_id, length in imap(render_tone, score.notes_feed_1st_pass(mon)):
         
         if length is not None:
