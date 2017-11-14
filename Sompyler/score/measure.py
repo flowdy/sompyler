@@ -1,5 +1,6 @@
 from Sompyler.score.stressor import Stressor
 from Sompyler.score.chord import Chord
+from pdb import set_trace
 
 def stress_range(stress):
 
@@ -23,17 +24,17 @@ class Measure(object):
     )
 
     def __init__(
-            self, structure, stage, previous, measure_cut=None,
+            self, structure, stage, previous, cut=None,
             stress_pattern=None, ticks_per_minute=None,
             lower_stress_bound=None, upper_stress_bound=None
         ):
 
-        self.measure_cut = measure_cut or 0
+        self.measure_cut = cut or 0
 
         if previous:
             self.offset = (
                 previous.offset + previous.calculate_seconds_from_ticks(
-                    previous.length
+                    max(previous.measure_cut,0) + previous.length
                 )
             )
         else:
@@ -80,21 +81,20 @@ class Measure(object):
         self.structure = structure
         self.voices = stage.voices
 
-        self.length = self.stressor.cumlen - (
-            abs(self.measure_cut)
-                if self.measure_cut < 0
-                else 0
-        )
+        self.length = self.stressor.cumlen - abs(self.measure_cut)
 
     def calculate_seconds_from_ticks( self, offset, length=None ):
 
-        if offset > self.length:
-            raise ValueError("Offset exceeding " + max_offset)
+        min_offset = max(self.measure_cut, 0)
+        max_offset = self.length + min_offset
 
-        if offset < self.measure_cut > 0:
+        if length and offset > max_offset:
+            raise ValueError("Offset exceeding " + str(max_offset))
+
+        if offset < (min_offset if length else self.length):
             raise ValueError(
-                "Offset too low, must be at least"
-                + self.measure_cut
+                "Offset " + str(offset) + " too low, must be at least "
+                + str(min_offset)
             )
 
         exp_div = 1.0 / self.stressor.cumlen
@@ -102,19 +102,20 @@ class Measure(object):
         spt, spt_factor = self.seconds_per_tick
 
         def seconds(ticks):
-            ticks += offset
             return spt * ( ticks if spt_factor == 1 else (
                            ( spt_factor ** (ticks*exp_div) - 1 )
                          / ( spt_factor **        exp_div  - 1 )
                        )
                    )
 
-        offset_s = seconds(0)
+        offset_s = seconds(offset)
+        trunc = seconds(min_offset) if min_offset else 0
 
         if length:
-            return offset_s, seconds(length) - offset_s
+            length = seconds(offset+length) - offset_s
+            return offset_s - trunc, length
         else:
-            return offset_s
+            return offset_s - trunc
 
 
     def __iter__(self):
@@ -188,7 +189,7 @@ class VoiceBoundMeasure(Measure):
 
         calc_span = self.measure.calculate_seconds_from_ticks
 
-        all_offsets = set( self.chords.values() )
+        all_offsets = set( self.chords.keys() )
 
         for tick, chord in self.chords.items():
 

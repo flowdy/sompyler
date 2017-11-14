@@ -1,7 +1,7 @@
 title: Alle meine Entchen
 author: unknown
 stage:
-    piano: 1|1 0 dev-piano
+    piano: 1|1 0 dev/piano
 ---
 _meta:
     stress_pattern: 2,0,1,0;1,0

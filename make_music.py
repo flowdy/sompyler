@@ -29,7 +29,7 @@ def process(options):
         sys.stderr.write(e.orig_info() + "\n")
         raise
 
- #   normalize_amplitude(samples)
+    normalize_amplitude(samples)
 
     soundfile.write(
         options.out_file, samples,
