@@ -97,8 +97,9 @@ Others are welcome to program GUIs for sompyler, of course.
 
 ### Hardware
 
-A personal computer or remote service access with a strong multi-core CPU.
-Sound hardware is not required.
+To make music with Sompyler, you should use a strong multi-core CPU and much RAM,
+depending on the score, since the complete sound file is built tone- and partialwise
+all in memory. Sound hardware is not required.
 
 ### Software
 
@@ -106,14 +107,14 @@ Besides of Python 2.7.x (as a Python newbie I postpone rewrite for 3.x, since
 version 2.x is more present in my job and self-confusion is not very much fun)
 one needs only three packages:
 
-  * PyYAML – reading YAML or JSON text
-  * PySound – to transform the calculated raw samples into a file, e.g. FLAC
+  * PyYAML – to parse YAML or JSON text
+  * soundfile – to transform the calculated raw samples into a file, e.g. FLAC
   * Numpy (mostly included) – calculation of each sample
 
 That is it. No dependencies to sound fonts, sound system layers or MIDI stuff.
-But again, not depending on it is easy given that users are not able to perform
-live. If Sompyler is ever suitable for professional music production, it is
-stuck to studio work. Its stage fright is legendary.
+But again, not depending on it is easy given that users will not be able to
+perform live. If Sompyler is ever suitable for professional music production,
+it is stuck to studio work. Its stage fright is legendary.
 
 Later I intend to program a tool to generate Sompyler YAML data from MIDI
 events, but first there are more important things to do.

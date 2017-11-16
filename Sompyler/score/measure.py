@@ -183,7 +183,7 @@ class VoiceBoundMeasure(Measure):
             tick, self.offsets
         )
 
-        return stress
+        return stress / 100.0
 
     def __iter__(self):
 
@@ -196,7 +196,6 @@ class VoiceBoundMeasure(Measure):
             if not isinstance(chord, list):
                 note = chord
                 chord = [note]
-
             yield Chord(
                 self.measure.offset, tick, self.voice,
                 self.stress_of_tick(tick),

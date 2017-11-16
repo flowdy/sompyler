@@ -36,11 +36,11 @@ class Note(object):
 
         weight = properties.pop('weight')
         if isinstance(weight, str):
-            m = re.match(r'(\d+)*([\d.]+)', weight)
+            m = re.match(r'(\d+)(?:\*([\d.]+))?', weight)
             if m:
-                note.stress = (
+                self.stress = (
                     int( m.group(1) ),
-                    stress * float( m.group(2) )
+                    stress * float( m.group(2) or 1 )
                 )
             else:
                 raise SyntaxError(

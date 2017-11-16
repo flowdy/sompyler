@@ -51,6 +51,7 @@ class Score(object):
                             note.stress = (
                                 note.stress[0] / sum_weights * note.stress[1]
                             )
+
                         vbnotes.extend(chord_notes)
 
                     max_stress = max(n.stress for n in vbnotes)
