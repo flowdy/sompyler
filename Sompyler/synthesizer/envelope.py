@@ -29,13 +29,22 @@ class Envelope(object):
         )
 
         if sustain:
-            self.sustain = (
-                sustain if isinstance(sustain, Shape)
-                        else Shape.from_string(sustain)
-            )
-            sust_penult_y, sust_ult_y = self.sustain.y_slice(-2, None, None)
+
+            if isinstance(sustain, Shape):
+                sustain_def = None
+            else:
+                sustain_def = sustain
+                sustain = Shape.from_string(sustain) 
+
+            sust_penult_y, sust_ult_y = sustain.y_slice(-2, None, None)
             if sust_penult_y < sust_ult_y:
-                raise Exception("Last two coords may not rise")
+                if sustain_def:
+                    raise Exception("Final two coords may not rise in " + sustain_def)
+                else:
+                    sustain.coords[-1].y = sustain.coords[-2].y
+
+            self.sustain = sustain
+
         else:
             self.sustain = None
 

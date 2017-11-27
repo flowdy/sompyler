@@ -29,7 +29,7 @@ def process(options):
         sys.stderr.write(e.orig_info() + "\n")
         raise
 
-    normalize_amplitude(samples)
+    normalize_amplitude(samples, options.volume)
 
     soundfile.write(
         options.out_file, samples,
@@ -66,9 +66,15 @@ if __name__=='__main__':
         type=str,
         help="Subtype of output as is supported by libsnd for that filetype"
     )
-    parser.add_argument('--workers',
+    parser.add_argument('--volume',
         default=1,
+        type=float,
+        help="Maximal amplitude in the range of 0..1"
+    )
+    parser.add_argument('--workers', '--parallel',
+        default=[1],
         type=int,
+        nargs='?',
         help="How many processes are used to render tones in parallel"
     )
     parser.add_argument('--verbose', '-v',
@@ -76,5 +82,11 @@ if __name__=='__main__':
         action='store_true',
         help="Display calculated information to every note"
     )
-    exit(process(parser.parse_args()))
+    args = parser.parse_args()
+    if args.workers:
+        args.workers = args.workers[0]
+    else:
+        args.workers = None
+
+    exit(process(args))
     

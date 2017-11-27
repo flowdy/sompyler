@@ -172,10 +172,11 @@ class Variation(object):
                     sympartial = self.lookup( p[1] ).sympartial()
                     volume = p[0]
                 elif isinstance(p, dict):
-                    volume = p.pop('V')
+                    volume = p['V']
+                    labels = self.label_specs
+                    labels['LOOK_UP'] = upper.lookup
                     sympartial = ProtoPartial(
-                        None, self.base, self.label_specs,
-                        **p
+                        None, self.base, labels, **p
                     ).sympartial()
                 elif isinstance(p, str):
                     m = re.match(r'(\d+)\s+(\w+)', p)

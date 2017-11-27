@@ -32,7 +32,7 @@ class Sympartial(object):
                 share *= envelope
                 iseq = np.arange(envelope.size)
         else:
-            return np.zeros(duration * SAMPLING_RATE)
+            return np.zeros(int( duration * SAMPLING_RATE ))
 
         if 'shaped_fm' in args and not isinstance(args['shaped_fm'], np.array):
             args['shaped_fm'] = Shape.from_string(
