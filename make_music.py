@@ -52,7 +52,7 @@ if __name__=='__main__':
         help="File to which the audio data is written"
     )
     parser.add_argument('--samplerate',
-        default=44100,
+        default=synthesizer.SAMPLING_RATE,
         type=int,
         help="How much frames per second"
     )
@@ -72,10 +72,10 @@ if __name__=='__main__':
         help="Maximal amplitude in the range of 0..1"
     )
     parser.add_argument('--workers', '--parallel',
-        default=[1],
         type=int,
         nargs='?',
-        help="How many processes are used to render tones in parallel"
+        help="How many additional processes are used to render tones in parallel"
+             " (0 = no parallelisation | default: as many the machine has cores)"
     )
     parser.add_argument('--verbose', '-v',
         default=False,
@@ -83,10 +83,9 @@ if __name__=='__main__':
         help="Display calculated information to every note"
     )
     args = parser.parse_args()
+
     if args.workers:
-        args.workers = args.workers[0]
-    else:
-        args.workers = None
+        args.workers += 1
 
     exit(process(args))
     
