@@ -46,7 +46,7 @@ class Score(object):
 
                     for chord in vbmeasure:
                         chord_notes = [ note for note in chord ]
-                        sum_weights = sum(n.stress[0] for n in chord_notes)
+                        sum_weights = 1 # sum(n.stress[0] for n in chord_notes)
                         for note in chord_notes:
                             note.stress = (
                                 note.stress[0] / sum_weights * note.stress[1]
