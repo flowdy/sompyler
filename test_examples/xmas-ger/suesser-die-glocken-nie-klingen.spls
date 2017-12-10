@@ -1,0 +1,296 @@
+title: Süßer die Glocken nie klingen
+composer: Unknown # TODO
+stage:
+   _space: 3:0|1:0
+   piano: 1|1 2 dev/piano
+   trumpet: 3|2 0 dev/trumpet
+---
+_meta:
+    stress_pattern: 1,0,0;1,0
+    ticks_per_minute: 160
+    upper_stress_bound: 100
+    lower_stress_bound: 70
+piano:
+    0: B3 3
+    3: B3 1
+    4: B3 2
+trumpet:
+    0:
+       - D3 3
+       - G2 6
+    3: D3 1
+    4: D3 2
+
+---
+piano:
+    0: B3 2
+    2: A3 2
+    4: B3 2
+trumpet:
+    0:
+       - D3 2
+       - G2 6
+    2: C3 2
+    4: D3 2
+
+---
+piano:
+    0: D4 6
+trumpet:
+    0:
+       - F3 10
+       - D3 10
+
+---
+piano:
+    0: A3 4
+
+---
+piano:
+    0: A3 3
+    3: A3 1
+    4: A3 2
+trumpet:
+    0:
+       - Fs3 2
+       - D2 6
+    3: Fs3 1
+    4: Fs3 2
+
+---
+piano:
+    0: A3 2
+    2: G3 2
+    4: A3 2
+trumpet:
+    0:
+       - Fs3 2
+       - D2 6
+    2: E3 2
+    4: Fs3 2
+
+---
+piano:
+    0: B3 10
+trumpet:
+    0:
+       - D3 10
+       - G2 10
+
+---
+{}
+
+---
+piano:
+    0: D4 3
+    3: D4 1
+    4: D4 2
+trumpet:
+    0:
+       - B2 3
+       - G2 6
+    3: B2 1
+    4: B2 2
+
+---
+piano:
+    0: D4 2
+    2: B3 2
+    4: G3 2
+trumpet:
+    0:
+       - B2 2
+       - G2 6
+    2: D3 2
+    4: F3 2
+
+---
+piano:
+    0: G4 6
+trumpet:
+    0:
+       - E3 6
+       - C3 10
+
+---
+piano:
+    0: E4 4
+trumpet:
+    0: G3 4
+
+---
+piano:
+    0: D4 3
+    3: E4 1
+    4: D4 2
+trumpet:
+    0:
+       - G3 6
+       - B2 3
+    3: C3 1
+    4: B2 2
+
+---
+piano:
+    0: D4 2
+    2: C4 2
+    4: A3 2
+trumpet:
+    0:
+       - Fs3 6
+       - D3 4
+    4: C3 2
+
+---
+piano:
+    0: G3 10
+trumpet:
+    0:
+       - B2 10
+       - G2 10
+---
+{}
+
+---
+piano:
+    0: A3 3
+    3: A3 1
+    4: A3 2
+trumpet:
+    0:
+       - Fs3 6
+       - D3 6
+
+---
+piano:
+    0: B3 2
+    2: B3 2
+    4: B3 2
+trumpet:
+    0:
+       - D3 6
+       - G2 6
+
+---
+piano:
+    0: D4 3
+    3: C4 1
+    4: A3 2
+trumpet:
+    0:
+       - Fs3 6
+       - D2 6
+
+---
+piano:
+    0: B3 6
+trumpet:
+    0:
+       - D3 6
+       - G2 6
+
+---
+piano:
+    0: A3 3
+    3: A3 1
+    4: A3 2
+trumpet:
+    0:
+       - Fs3 6
+       - D3 6
+
+---
+piano:
+    0: B3 2
+    2: B3 2
+    4: B3 2
+trumpet:
+    0:
+       - D3 6
+       - G2 6
+
+---
+piano:
+    0: D4 3
+    3: C4 1
+    4: A3 2
+trumpet:
+    0:
+       - Fs3 6
+       - D2 6
+
+---
+piano:
+    0: B3 6
+trumpet:
+    0:
+       - D3 6
+       - G2 6
+
+---
+piano:
+    0: D4 3
+    3: C4 1
+    4: B3 2
+trumpet:
+    0:
+       - B2 3
+       - G2 6
+    3: E3 1
+    4: D3 2
+
+---
+piano:
+    0: B3 2
+    2: A3 2
+    4: G3 2
+trumpet:
+    0:
+       - D3 4
+       - G2 6
+    4: F3 2
+
+---
+piano:
+    0: G4 6
+trumpet:
+    0:
+       - E3 6
+       - C3 10
+
+---
+piano:
+    0: E4 4
+trumpet:
+    0: G3 4
+
+---
+piano:
+    0: D4 3
+    3: E4 1
+    4: D4 2
+trumpet:
+    0:
+       - G3 6
+       - B2 3
+    3: C3 1
+    4: B2 2
+
+---
+piano:
+    0: D4 2
+    2: C4 2
+    4: A3 2
+trumpet:
+    0:
+       - Fs3 6
+       - D3 4
+    4: C3 2
+
+---
+piano:
+    0: G3 10
+trumpet:
+    0:
+       - B2 10
+       - G2 10

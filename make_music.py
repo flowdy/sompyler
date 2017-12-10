@@ -84,7 +84,7 @@ if __name__=='__main__':
     )
     args = parser.parse_args()
 
-    if args.workers:
+    if args.workers is not None:
         args.workers += 1
 
     exit(process(args))

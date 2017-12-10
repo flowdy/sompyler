@@ -34,7 +34,21 @@ class ProtoPartial(object):
         '_' + i for i in ABBREV_ARGS
     )
 
-    def __init__( self, base, upper, pp_registry, **args ):
+    def __init__( self, base, upper, pp_registry, other=None, **args ):
+
+        def refresolver(name):
+            pp = pp_registry.get(name)
+            if pp is None:
+                pp = pp_registry['LOOK_UP'](name)
+            if pp is None:
+                raise ValueError('Name cannot be resolved: ' + name)
+            return pp
+
+        if other:
+            if not other.startswith('@'):
+                raise ValueError('other argument must reference a @label')
+            base = refresolver( other[1:] )
+
         self._base = base
         self._upper = upper
         self._cache = {}
@@ -42,7 +56,6 @@ class ProtoPartial(object):
         for prop in ABBREV_ARGS.keys():
             value = args.get(prop)
             if value is None:
-                setattr(self, '_' + prop, None)
                 continue
             elif prop == "O":
                 if isinstance(value, str):
@@ -50,9 +63,7 @@ class ProtoPartial(object):
                     value = pp.get('O')
             elif value.startswith('@'):
                 value = value[1:]
-                pp = pp_registry.get( value )
-                if pp is None:
-                    pp = pp_registry['LOOK_UP'](value)
+                pp = refresolver(value)
                 value = pp.get(prop)
             if prop in SHAPES:
                 value = Shape.from_string(value)
@@ -68,7 +79,8 @@ class ProtoPartial(object):
             of named variation. If it is not found there, try the base and its ancestry.
         """
 
-        value = getattr(self, '_' + attr, None)
+        privm = '_' + attr
+        value = getattr(self, privm, None)
 
         if value is not None:
             return value
@@ -76,13 +88,8 @@ class ProtoPartial(object):
             return self._cache[attr]
 
         for m in (self._upper, self._base):
-            if m is None:
-                continue
-            privm = '_' + attr
-            value = (
-                getattr(m, privm) if hasattr(m, privm)
-                                else m.get(attr)
-            )
+            if m is None: continue
+            value = getattr(m, privm, m.get(attr))
             if value is not None:
                 self._cache[attr] = value
                 return value

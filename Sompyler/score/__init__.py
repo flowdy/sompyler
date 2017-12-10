@@ -46,7 +46,10 @@ class Score(object):
 
                     for chord in vbmeasure:
                         chord_notes = [ note for note in chord ]
-                        sum_weights = 1 # sum(n.stress[0] for n in chord_notes)
+                        sum_weights = (
+                                sum(n.stress[0] for n in chord_notes)
+                              / len( chord_notes )
+                            ) 
                         for note in chord_notes:
                             note.stress = (
                                 note.stress[0] / sum_weights * note.stress[1]
@@ -58,7 +61,7 @@ class Score(object):
                     if max_stress < 1:
                         max_stress = 1
                     for note in vbnotes:
-                        note.stress /= max_stress
+                        # note.stress /= max_stress
                         yield note
 
                 prev_measure = m
