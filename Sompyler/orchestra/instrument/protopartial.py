@@ -1,9 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import division
-from Sompyler.synthesizer.sympartial import Sympartial
-from Sompyler.synthesizer.modulation import Modulation
-from Sompyler.synthesizer.envelope import Envelope, Shape
+from ...synthesizer.sympartial import Sympartial
+from ...synthesizer.modulation import Modulation
+from ...synthesizer.envelope import Envelope, Shape
 import re
 
 ABBREV_ARGS = {
@@ -23,7 +22,7 @@ OSC_ARGS = ('AM', 'FM', 'WS')
 SHAPES = ENV_ARGS + ('WS',)
 MODS = ('AM', 'FM')
 
-class ProtoPartial(object):
+class ProtoPartial:
     """
     Manage all properties. Inherit them top-down from base of the variation
     or from the protopartial labelled the same from an upper variation, and get

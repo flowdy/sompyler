@@ -1,6 +1,5 @@
-from Sompyler.score.stressor import Stressor
-from Sompyler.score.chord import Chord
-from pdb import set_trace
+from .stressor import Stressor
+from .chord import Chord
 
 def stress_range(stress):
 
@@ -17,7 +16,7 @@ def stress_range(stress):
 
 
 
-class Measure(object):
+class Measure:
     __slots__ = (
         'seconds_per_tick', 'stressor', 'offset', 'length', 'structure',
         'voices', 'measure_cut', 'lower_stress_bound', 'upper_stress_bound'
@@ -63,7 +62,7 @@ class Measure(object):
 
             self.seconds_per_tick = (
                 60.0 / ticks_per_minute[0],
-                ticks_per_minute[0] * 1.0 / ticks_per_minute[1]
+                ticks_per_minute[0] / ticks_per_minute[1]
             )
 
         self.lower_stress_bound = (
@@ -171,7 +170,7 @@ class VoiceBoundMeasure(Measure):
 
     def stress_of_tick( self, tick ):
 
-        offset = 1.0 * tick / self.stressor.cumlen
+        offset = tick / self.stressor.cumlen
 
         ls, ls_factor = self.lower_stress_bound
         ls = ls * ls_factor**offset

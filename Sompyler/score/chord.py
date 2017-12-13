@@ -1,6 +1,6 @@
-from Sompyler.score.note import Note
+from .note import Note
 
-class Chord(object):
+class Chord:
 
     def __init__(
            self, total_offset, measure_offset, voice,

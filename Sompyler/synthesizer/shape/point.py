@@ -1,7 +1,6 @@
-from __future__ import division
 from math import sqrt
 
-class Point(object):
+class Point:
     __slots__ = ['x', 'y']
     def __init__(self, x, y):
         self.x = x

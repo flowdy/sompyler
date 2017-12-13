@@ -1,8 +1,8 @@
 from __future__ import print_function
-from Sompyler.orchestra.instrument import Instrument
-from Sompyler.score import Score
+from .instrument import Instrument
+from ..score import Score
 from tempfile import mkdtemp
-import sys, os, numpy, traceback # , pdb
+import sys, os, numpy, traceback
 
 cached_files_dir = None
 
@@ -13,10 +13,7 @@ def play(score_fh, workers=None, monitor=None):
 
     initialize_worker( mkdtemp() )
 
-    if workers == 1:
-        import itertools
-        imap = itertools.imap
-    else:
+    if workers is None or workers > 1:
         import multiprocessing 
         pool = multiprocessing.Pool(
             processes=workers,
@@ -24,6 +21,8 @@ def play(score_fh, workers=None, monitor=None):
             initargs=[cached_files_dir]
         )
         imap = pool.imap_unordered
+    else:
+        imap = map
 
     notes_cnt  = 0
     errors_cnt = 0

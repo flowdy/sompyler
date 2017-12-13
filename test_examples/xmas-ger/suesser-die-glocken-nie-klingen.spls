@@ -2,8 +2,8 @@ title: Süßer die Glocken nie klingen
 composer: Unknown # TODO
 stage:
    _space: 3:0|1:0
-   piano: 1|1 2 dev/piano
-   trumpet: 3|2 0 dev/trumpet
+   piano: 1|1 0 dev/piano
+   trumpet: 3|2 2 dev/trumpet
 ---
 _meta:
     stress_pattern: 1,0,0;1,0

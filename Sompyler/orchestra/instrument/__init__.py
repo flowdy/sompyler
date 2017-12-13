@@ -1,11 +1,11 @@
 from operator import itemgetter
-import re, yaml
-from Sompyler.orchestra.instrument.protopartial import ProtoPartial
-import Sompyler.orchestra.instrument.combinators
-from Sompyler.synthesizer import normalize_amplitude
-from Sompyler.synthesizer.oscillator import Oscillator, CORE_PRIMITIVE_OSCILLATORS, Shape
-from Sompyler.synthesizer.sound_generator import SoundGenerator
 from math import ceil
+import re, yaml
+from .protopartial import ProtoPartial
+from . import combinators
+from ...synthesizer import normalize_amplitude
+from ...synthesizer.oscillator import Oscillator, CORE_PRIMITIVE_OSCILLATORS, Shape
+from ...synthesizer.sound_generator import SoundGenerator
 
 root_osc = CORE_PRIMITIVE_OSCILLATORS()
 
@@ -13,7 +13,7 @@ for (key, value) in root_osc.items():
     root_osc[key] = ProtoPartial(None, None, {}, O=value)
 
 
-class Instrument(object):
+class Instrument:
     __slots__ = ('root_variation',)
 
     def __init__(self, definition_file):
@@ -106,7 +106,7 @@ class Variation(object):
         if timbre is not None:
             timbre = Shape.from_string(timbre)
 
-        for attr in kwargs.keys():
+        for attr in list( kwargs.keys() ):
             if not isinstance(attr, str):
                continue
             elif re.match('[a-z]\w+$', attr):
@@ -167,7 +167,7 @@ class Variation(object):
                 divs = { 0: divs }
             for d in sorted( divs.keys() ):
                 p = divs[d]
-                freq_factor = pno * 2 ** (d*1.0/1200)
+                freq_factor = pno * 2 ** (d/1200)
                 if isinstance(p, tuple):
                     sympartial = self.lookup( p[1] ).sympartial()
                     volume = p[0]

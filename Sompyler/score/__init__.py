@@ -1,13 +1,13 @@
 from yaml import load_all
-from Sompyler.synthesizer import SAMPLING_RATE
-from Sompyler.tone_mapper import get_mapper_from
-from Sompyler.score.measure import Measure
-from Sompyler.score.stressor import Stressor
-from Sompyler.score.stage import Stage
 import re, sys, numpy
 from os import path
+from ..synthesizer import SAMPLING_RATE
+from ..tone_mapper import get_mapper_from
+from .measure import Measure
+from .stressor import Stressor
+from .stage import Stage
 
-class Score(object):
+class Score:
 
     def __init__(self, file):
 
@@ -75,9 +75,9 @@ class Score(object):
             if not path.isabs(fn):
                 absfile = path.join(score_directory, fn)
                 if not path.isfile(absfile):
-                    absfile = path.join(sys.path[0], 'instruments', fn)
+                    absfile = path.join(sys.path[0], '../instruments', fn)
                 if not path.isfile(absfile):
-                    raise RuntimeException( instrument_spec_fn
+                    raise RuntimeError( absfile
                         + " is neither found in same directory as the score "
                           " file nor in the global instruments/ directory "
                    )

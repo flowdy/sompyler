@@ -1,13 +1,11 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import division
 import numpy as np
 import re
-from Sompyler.synthesizer import BYTES_PER_CHANNEL, SAMPLING_RATE
-from Sompyler.synthesizer.modulation import Modulation
-from Sompyler.synthesizer.shape import Shape
-from Sompyler.synthesizer import normalize_amplitude
 from collections import deque
+from .modulation import Modulation
+from .shape import Shape
+from ..synthesizer import BYTES_PER_CHANNEL, SAMPLING_RATE, normalize_amplitude
 
 class Oscillator:
 
@@ -33,7 +31,7 @@ class Oscillator:
             waveshape_res = 2 ** (BYTES_PER_CHANNEL * 8)
             amplitudes = np.array( ws.render(waveshape_res) - 1 )
             self.wave_shaper = lambda w: amplitudes[
-                ( (w+1) / 2.0 * (waveshape_res-1) ).astype(np.int)
+                ( (w+1) / 2 * (waveshape_res-1) ).astype(np.int)
             ]
         else:
             self.wave_shape  = None
@@ -173,11 +171,11 @@ def _noise_generator(
 
         count = 0
 
-        posw = 1.0; negw = 1.0; recent_samples = deque()
+        posw = 1; negw = 1; recent_samples = deque()
 
         for (freq, sample) in getfreq_rnd():
         
-            window_size = -2.0 * freq / SAMPLING_RATE + 1
+            window_size = -2 * freq / SAMPLING_RATE + 1
 
             if window_size > 1:
                 window_size = 1.0
@@ -188,7 +186,7 @@ def _noise_generator(
             else:
                 inv = False
 
-            half_period_length = SAMPLING_RATE * 1.0 / (2*freq)
+            half_period_length = SAMPLING_RATE / (2*freq)
 
             earlier_sample = 0
 
@@ -221,10 +219,6 @@ def _noise_generator(
             next_sample = lower_bound + sample % window_size
             
             count += 1;
-            if False: # new_sample > 1:
-                print '%06d. L%+.5f W%+.5f (%+.5f in %+.5f-%+.5f) => %+.5f' % (
-                    count, last_sample, window_size, sample, lower_bound, upper_bound, next_sample
-                )
 
             yield next_sample
 

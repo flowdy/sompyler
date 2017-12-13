@@ -1,4 +1,4 @@
-class Stressor(object):
+class Stressor:
 
     __slots__ = ('_tuple', '_next', '_cumlen', '_all_maxv')
 
@@ -23,7 +23,7 @@ class Stressor(object):
         else:
             self._next = None
             self._cumlen = 1
-        self._all_maxv = max( i[1] for i in self._tuple ) * 1.0
+        self._all_maxv = max( i[1] for i in self._tuple )
 
     @property
     def cumlen(self): return len(self._tuple) * self._cumlen

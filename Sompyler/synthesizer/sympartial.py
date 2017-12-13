@@ -1,14 +1,13 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import division
-from Sompyler.synthesizer import SAMPLING_RATE
-from Sompyler.synthesizer.oscillator import Oscillator
-from Sompyler.synthesizer.envelope import Envelope, Shape
 import numpy as np
 import re
 import copy
+from . import SAMPLING_RATE
+from .oscillator import Oscillator
+from .envelope import Envelope, Shape
 
-class Sympartial(object):
+class Sympartial:
     """
     A Sympartial is a partial that may be accompanied by dependent partials
     implied by modulation of its amplitude, frequency, and/or by wave shaping.

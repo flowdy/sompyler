@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
-from __future__ import division
-from Sompyler.synthesizer.sympartial import Sympartial, Oscillator, log_to_linear
-from Sompyler.synthesizer.envelope import Envelope, Shape
-from Sompyler.synthesizer.shape.point import SympartialPoint
+from .sympartial import Sympartial, Oscillator, log_to_linear
+from .envelope import Envelope, Shape
+from .shape.point import SympartialPoint
 import numpy as np
 import re
 

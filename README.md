@@ -84,16 +84,20 @@ Prerequisites
 
 ### User
 
-Ability to edit raw text files with a powerful text editor. There will be no
+Know-how and ability to edit raw text files with a powerful text editor. There will be no
 "official" user interface that hides the text definition stuff behind eye-candy
-widgets. Sompyler works according to the pure Unix philosophy, like a compiler,
+widgets. Sompyler works according to the pure Unix philosophy, reasonable data in,
+audio (PCM) data out, like a compiler builds an executable program from sources,
 hence the name:
 
-    $ sompyler input.spls output.flac
-    [text scrolling over the screen. You are not expected to read it, except
-    to trace errors if any.]
+    $ scripts/sompyle input.spls output.flac
+    [Text scrolling over the screen. You are not expected to read it, except
+    to trace errors if any. Errors always show up last.]
 
-Others are welcome to program GUIs for sompyler, of course.
+Others are welcome to program GUIs for sompyler, of course. I, for one, just have no
+idea how such an interface could look like and can be used so that it is actually easier
+than to "simply" create and edit YAML files.
+
 
 ### Hardware
 
@@ -101,30 +105,28 @@ To make music with Sompyler, you should use a strong multi-core CPU and much RAM
 depending on the score, since the complete sound file is built tone- and partialwise
 all in memory. Sound hardware is not required.
 
+
 ### Software
 
-Besides of Python 2.7.x (as a Python newbie I postpone rewrite for 3.x, since
-version 2.x is more present in my job and self-confusion is not very much fun)
-one needs only three packages:
+Sompyler has very few dependencies:
 
   * PyYAML – to parse YAML or JSON text
-  * soundfile – to transform the calculated raw samples into a file, e.g. FLAC
-  * Numpy (mostly included) – calculation of each sample
+  * soundfile – transforms the calculated raw samples into a file, e.g. FLAC
+  * Numpy – sample calculation
+  * optionally Cython – turbo-boost calculation of envelopes of partial tones
 
-That is it. No dependencies to sound fonts, sound system layers or MIDI stuff.
-But again, not depending on it is easy given that users will not be able to
+That is it. No dependencies to third-party sound fonts, sound system layers or MIDI stuff.
+Admittedly, not depending on it is easy given that users will not be able to
 perform live. If Sompyler is ever suitable for professional music production,
-it is stuck to studio work. Its stage fright is legendary.
+it is probably stuck to studio work. Its stage fright is legendary.
 
 Later I intend to program a tool to generate Sompyler YAML data from MIDI
 events, but first there are more important things to do.
 
 While the sompyler is in alpha state, I rather focus development of core features
-than getting it to run on other systems than mine, which is a Debian GNU/Linux.
-
-Sufficiently fast CPU and much RAM (at least 1G, depending on the length of the
-score you want to compile) is recommended since sound data is purely calculated
-i.e. without external sound fonts and things like that.
+than getting it to run on other systems than mine, which is a Debian GNU/Linux. However,
+after installation of the dependencies above, Sompyler may work out of the box on
+other systems as well.
 
 Copyright & License
 -------------------

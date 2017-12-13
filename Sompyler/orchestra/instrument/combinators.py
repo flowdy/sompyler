@@ -91,7 +91,7 @@ def merge( attr, variants ):
                 if leftv is None:
                     return v[1].sound_generator_for(note)
                 else:
-                    dist = (attrval - lastval) * 1.0 / (v[0] - lastval)
+                    dist = (attrval - lastval) / (v[0] - lastval)
                     left_sg = leftv.sound_generator_for(note)
                     right_sg = v[1].sound_generator_for(note)
                     return left_sg.weighted_average( left_sg, dist, right_sg )

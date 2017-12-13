@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import division
-from Sompyler.synthesizer.shape import Shape
+from .shape import Shape
 from numpy import pi, sin
 import re
 
-class Modulation(object):
+class Modulation:
 
     def __init__(
         self, frequency, mod_share, base_share, oscillator,

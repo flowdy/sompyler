@@ -1,6 +1,6 @@
-import re, pdb
+import re
 
-class Stage(object):
+class Stage:
 
     def __init__( self, space, voices, tuner ):
 
@@ -18,8 +18,6 @@ class Stage(object):
         sum_intensities = 0
 
         self.voices = {}
-
-        # pdb.set_trace()
 
         for name, ch_data in voices.items():
             if isinstance(ch_data, str):
@@ -42,10 +40,10 @@ class Stage(object):
         for voice in self.voices.values():
             i = voice.intensity / sum_intensities
             left, right = voice.position
-            voice.position = ( left/i, right/i )
+            voice.position = ( left*i, right*i )
 
 
-class Voice(object):
+class Voice:
     __slots__ = ('tuning', 'instrument', 'position', 'intensity')
 
     def __init__(self, space, direction, distance, instrument, tuning):

@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import sys, argparse, script_preamble
 from Sompyler.synthesizer import SAMPLING_RATE, BYTES_PER_CHANNEL
 
@@ -34,6 +36,9 @@ parser.add_argument("--output", "-o", metavar="FILE",
          "extension to choose the respective file type (default is .wav). "
          "Otherwise, you might want to choose .png just to remind yourself "
          "that it is a PNG image.")
+parser.add_argument("--outline", action='store_true',
+    help="in combination with an instrument definition, a tone is displayed "
+         "a line each partial so you can see clearly how it is assembled."
 args = parser.parse_args()
 
 class ArgumentError(Exception):
@@ -68,7 +73,7 @@ for i in ('A', 'S', 'T', 'R', 'FM', 'AM', 'WS'):
 def display_graph(curve):
     import matplotlib.pyplot as plt
     if isinstance(curve, dict):
-        raise NotImplemented
+        raise NotImplementedError
     else:
         plt.plot(range(len(curve)), curve)
         plt.show()
@@ -85,7 +90,7 @@ def generate_sound_file(tone, filename):
     else:
         file = filename
     soundfile.write(file, tone, SAMPLING_RATE, **format)
-    print "Successfully written sound file {}!".format(filename)
+    print( "Successfully written sound file {}!".format(filename) )
 
 if args.instrument:
     # render tone of the specified instrument
@@ -96,16 +101,21 @@ if args.instrument:
         )
     from Sompyler.orchestra.instrument import Instrument
     instr = Instrument(args.instrument)
-    tone = instr.render_tone(
-        args.pitch, args.length,
-        args.stress
-    )
-    if args.sound:
-        generate_sound_file(tone, args.output)
-    display_graph(tone)
+
+    if args.outline:
+        raise NotImplementedError("(to do)")
+
+    else:
+        tone = instr.render_tone(
+            args.pitch, args.length,
+            args.stress
+        )
+        if args.sound:
+            generate_sound_file(tone, args.output)
+        display_graph(tone)
 
 elif args.oscillator:
-    print "Render tone of a sympartial ..."
+    print( "Render tone of a sympartial ..." )
     from Sompyler.orchestra.instrument.protopartial import ProtoPartial
     from Sompyler.synthesizer.oscillator import CORE_PRIMITIVE_OSCILLATORS
     properties['O'] = CORE_PRIMITIVE_OSCILLATORS()[ args.oscillator ]
@@ -118,13 +128,13 @@ elif args.oscillator:
     display_graph(tone)
 
 elif args.A:
-    print "Rendering bare envelope ..."
+    print( "Rendering bare envelope ..." )
     from Sompyler.synthesizer.envelope import Envelope
     env = Envelope(args.A, args.S, args.T, args.R)
     display_graph(env.render(args.length))
 
 elif args.S:
-    print "Rendering bare shape ..."
+    print( "Rendering bare shape ..." )
     from Sompyler.synthesizer.shape import Shape
     display_graph(
         Shape.from_string(properties['S']).render(args.length * SAMPLING_RATE)

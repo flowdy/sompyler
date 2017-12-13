@@ -1,6 +1,6 @@
 import re
 
-class Note(object):
+class Note:
     __slots__ = (
         'instrument', 'stress', 'pitch',
         'properties', 'length', 'num_samples', 'occurrences'

@@ -1,13 +1,12 @@
 # -*- coding: utf-8 -*-
 
-from __future__ import division
-from Sompyler.synthesizer.shape.bezier_gradient import plot_bezier_gradient
-from Sompyler.synthesizer.shape.point import Point, BezierEdgePoint, SympartialPoint
+from .bezier_gradient import plot_bezier_gradient
+from .point import Point, BezierEdgePoint, SympartialPoint
 import re
 import copy
 from operator import itemgetter
 
-class Shape(object):
+class Shape:
     __slots__ = ['length', 'coords', 'y_max']
     def __init__(self, span, *coords):
 
@@ -219,40 +218,43 @@ class Shape(object):
 
         coords = self.coords[:]
 
-        if adj_length > 1:
-            pult_x = coords[-2].x
-            pult_y, ult_y = (i.y for i in coords[-2:])
-            ult_rise = (ult_y - pult_y) / (1 - pult_x)
-            fill_x = adj_length
-            fill_y = ult_y + (fill_x - 1) * ult_rise
-            fill_x2 = None
-            if fill_y < 0:
-                # even out fall into negative to being constant 0
-                fill_x2 = fill_x
-                fill_x = -ult_y / ult_rise + 1
-                fill_y = 0
-            replaced = coords.pop(-1)
-            coords.append(replaced.new_alike( fill_x, fill_y ))
-            if fill_x2: coords.append(
-                replaced.new_alike( fill_x2, fill_y )
-            )
+        if adj_length:
 
-        elif adj_length and adj_length < 1:
-            n = 0
-            for i in coords:
-                if adj_length >= i.x:
-                   n += 1
-                else: break
-            h = coords[n-1]
-            new_coord = h.weighted_average(
-                h, (adj_length - h.x) / (i.x - h.x), i
-            )
-            del coords[n:]
-            coords.append(new_coord)
+            if adj_length > 1:
+                pult_x = coords[-2].x
+                pult_y, ult_y = (i.y for i in coords[-2:])
+                ult_rise = (ult_y - pult_y) / (1 - pult_x)
+                fill_x = adj_length
+                fill_y = ult_y + (fill_x - 1) * ult_rise
+                fill_x2 = None
+                if fill_y < 0:
+                    # even out fall into negative to being constant 0
+                    fill_x2 = fill_x
+                    fill_x = -ult_y / ult_rise + 1
+                    fill_y = 0
+                replaced = coords.pop(-1)
+                coords.append(replaced.new_alike( fill_x, fill_y ))
+                if fill_x2: coords.append(
+                    replaced.new_alike( fill_x2, fill_y )
+                )
+
+            elif adj_length < 1:
+                n = 0
+                for i in coords:
+                    if adj_length >= i.x:
+                       n += 1
+                    else: break
+                h = coords[n-1]
+                new_coord = h.weighted_average(
+                    h, (adj_length - h.x) / (i.x - h.x), i
+                )
+                del coords[n:]
+                coords.append(new_coord)
 
         # rescale x-dimension to new maximum, y-dimension to y_scale
         x_max = coords[-1].x
         return [ c.new_alike(c.x / x_max, c.y * y_scale) for c in coords ]
+
 
     @staticmethod
     def add_final_boost( boost_shape, coords, length ):
@@ -427,7 +429,7 @@ class Shape(object):
 
             for step in range(inter_coords):
                 new_coords.append( coords[i].weighted_average(
-                    coords[i], (step+1) / (inter_coords+1) * 1.0, c
+                    coords[i], (step+1) / (inter_coords+1), c
                 ) )
 
             new_coords.append(c)

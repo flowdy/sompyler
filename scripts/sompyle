@@ -1,17 +1,19 @@
+#!/usr/bin/env python3
+import script_preamble
 from Sompyler.orchestra import play, NoteRenderingFailure
 from Sompyler.synthesizer import normalize_amplitude
 from Sompyler import synthesizer
 import soundfile
-import argparse, sys
+import argparse, sys, numpy, re
 
 def monitor(note_id, occurrence, description=None):
 
-    print ("New note" if description else "Reuse note"),
-    print note_id, "@"+str(occurrence),
+    print("New note" if description else "Reuse note", end='')
+    print(note_id, "@"+str(occurrence), end='')
     if description:
-        print ":", description
+        print( ":", description)
     else:
-        print "."
+        print( "." )
 
 def process(options):
 
@@ -31,10 +33,13 @@ def process(options):
 
     normalize_amplitude(samples, options.volume)
 
-    soundfile.write(
-        options.out_file, samples,
-        synthesizer.SAMPLING_RATE, subtype
-    )
+    if re.search('.npy$', options.out_file.name):
+        numpy.save(options.out_file, samples)
+    else:
+        soundfile.write(
+            options.out_file, samples,
+            synthesizer.SAMPLING_RATE, subtype
+        )
 
     return 0
 
@@ -48,7 +53,7 @@ if __name__=='__main__':
         help="File containing the Sompyler score in YAML syntax"
     )
     parser.add_argument('out_file',
-        type=argparse.FileType('w'),
+        type=argparse.FileType('wb'),
         help="File to which the audio data is written"
     )
     parser.add_argument('--samplerate',
@@ -88,4 +93,4 @@ if __name__=='__main__':
         args.workers += 1
 
     exit(process(args))
-    
+

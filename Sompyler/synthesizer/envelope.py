@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import division
-from Sompyler.synthesizer import SAMPLING_RATE
-from Sompyler.synthesizer.shape import Shape
+from . import SAMPLING_RATE
+from .shape import Shape
 
-class Envelope(object):
+class Envelope:
     """ Threesome of attack, sustain and release phases of a partial tone.
 
     Please note that in contrast to the ADSR envelope combining linearly
