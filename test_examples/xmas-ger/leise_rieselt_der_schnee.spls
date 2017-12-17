@@ -1,0 +1,306 @@
+title: Leise rieselt der Schnee
+composer: Unknown # TODO
+stage:
+   _space: 3:0|3:0
+   tfork: 1|1 0 tuning-fork-at-wood
+   string: 3|2 2 dev/string
+---
+_meta:
+    stress_pattern: 1,0,0;1,0
+    ticks_per_minute: 160
+    upper_stress_bound: 100
+    lower_stress_bound: 70
+tfork:
+    0:
+       - D4 4
+    4:
+       - D4 2
+
+---
+tfork:
+    0: C4 2
+    2: D4 2
+    4: C4 2
+
+---
+tfork:
+    0: Bb3 10
+
+---
+{}
+
+---
+tfork:
+    0: Bb3 4
+    4: G3 2
+
+---
+tfork:
+    0: Bb3 2
+    2: A3 2
+    4: G3 2
+
+---
+tfork:
+    0: F3 10
+
+---
+{}
+
+---
+tfork:
+    0: C4 2
+    2: B3 2
+    4: C4 2
+
+---
+tfork:
+    0: Eb4 2
+    2: D4 2
+    4: C4 2
+
+---
+tfork:
+    0: Bb3 10
+    
+---
+{}
+
+---
+tfork:
+    0: C4 3
+    3: G3 1
+    4: G3 2
+
+---
+tfork:
+    0: A3 2
+    2: G3 2
+    4: A3 2
+
+---
+tfork:
+    0: Bb3 10
+
+---
+{}
+
+---
+string:
+    0:
+       - D4 4
+    4:
+       - D4 2
+
+---
+string:
+    0: C4 2
+    2: D4 2
+    4: C4 2
+
+---
+string:
+    0: Bb3 10
+
+---
+{}
+
+---
+string:
+    0: Bb3 4
+    4: G3 2
+
+---
+string:
+    0: Bb3 2
+    2: A3 2
+    4: G3 2
+
+---
+string:
+    0: F3 10
+
+---
+{}
+
+---
+string:
+    0: C4 2
+    2: B3 2
+    4: C4 2
+
+---
+string:
+    0: Eb4 2
+    2: D4 2
+    4: C4 2
+
+---
+string:
+    0: Bb3 10
+    
+---
+{}
+
+---
+string:
+    0: C4 3
+    3: G3 1
+    4: G3 2
+
+---
+string:
+    0: A3 2
+    2: G3 2
+    4: A3 2
+
+---
+string:
+    0: Bb3 10
+
+---
+{}
+
+---
+tfork:
+    0:
+       - D4 4
+    4:
+       - D4 2
+string:
+    0: 
+       - F3 4
+       - Bb2 12
+    4:
+       - F3 2
+
+---
+tfork:
+    0: C4 2
+    2: D4 2
+    4: C4 2
+string:
+    0: Eb3 2
+    2: F3 2
+    4: Eb3 2
+
+---
+tfork:
+    0: Bb3 10
+string:
+    0:
+       - D3 10
+       - Bb2 4
+    4:
+       - F2 2
+
+---
+string:
+    0: Bb2 4
+    4: As2 2
+
+---
+tfork:
+    0: Bb3 4
+    4: G3 2
+string:
+    0:
+       - G2 4
+       - Eb2 12
+    4: Bb2 2
+
+---
+tfork:
+    0: Bb3 2
+    2: A3 2
+    4: G3 2
+string:
+    0: G2 2
+    2: A2 2
+    4: Bb2 2
+
+---
+tfork:
+    0: F3 10
+string:
+    0:
+       - D3 10
+       - Bb2 4
+    4: F2 2
+
+---
+string:
+    0: Bb2 4
+    4: D3 2
+
+---
+tfork:
+    0: C4 2
+    2: B3 2
+    4: C4 2
+string:
+    0:
+       - A3 2
+       - F3 6
+    2: Gs3 2
+    4: A3 2
+
+---
+tfork:
+    0: Eb4 2
+    2: D4 2
+    4: C4 2
+string:
+    0:
+       - Fs3 6
+       - C3 2
+    2: Bb2 2
+    4: A2 2
+
+---
+tfork:
+    0: Bb3 10
+string:
+    0:
+       - D3 10
+       - G2 4
+    4: A2 2
+    
+---
+string:
+    0: G2 4
+    4: F2 2
+
+---
+tfork:
+    0: C4 3
+    3: G3 1
+    4: G3 2
+string:
+    0:
+       - C3 6
+       - Eb2 6
+
+---
+tfork:
+    0: A3 2
+    2: G3 2
+    4: A3 2
+string:
+    0:
+       - Eb3 6
+       - F2 6
+
+---
+tfork:
+    0: Bb3 10
+string:
+    0:
+       - D3 12
+       - Bb2 4
+    4:
+       - F2 2
+
+---
+string:
+    0: Bb1 6
