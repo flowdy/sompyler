@@ -39,6 +39,7 @@ parser.add_argument("--output", "-o", metavar="FILE",
 parser.add_argument("--outline", action='store_true',
     help="in combination with an instrument definition, a tone is displayed "
          "a line each partial so you can see clearly how it is assembled."
+)
 args = parser.parse_args()
 
 class ArgumentError(Exception):
