@@ -19,7 +19,11 @@ class Shape:
         if not y_max:
             raise RuntimeError("y_max cannot not be 0 [" + repr(coords) + "]")
 
-        self.coords = [ BezierEdgePoint(0, 1 if span[1] else 0, True) ]
+        if coords[0][0] > 0:
+            self.coords = [ BezierEdgePoint(0, 1 if span[1] else 0, True) ]
+        else:
+            self.coords = []
+
         self.y_max = y_max
         x_last = -1
 
