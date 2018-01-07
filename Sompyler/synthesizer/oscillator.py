@@ -29,7 +29,8 @@ class Oscillator:
                 ws = Shape.from_string( ws )
             self.wave_shape = ws
             waveshape_res = 2 ** (BYTES_PER_CHANNEL * 8)
-            amplitudes = np.array( ws.render(waveshape_res) - 1 )
+            waveshape_list = ws.render(waveshape_res)
+            amplitudes = np.array(waveshape_list) - 1
             self.wave_shaper = lambda w: amplitudes[
                 ( (w+1) / 2 * (waveshape_res-1) ).astype(np.int)
             ]
