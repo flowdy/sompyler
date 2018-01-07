@@ -7,7 +7,7 @@ source: >
 
     The rest is a mere guess based on the text of the article.
 character:
-    R: "0.01:1;1,0"
+    R: "0.2:1;1,0"
     O: "sine"
     PARTIALS:
     - { A: "0.12:1,9;2,10", V: 100 }
