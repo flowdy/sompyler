@@ -53,22 +53,41 @@ class ProtoPartial:
         self._cache = {}
 
         for prop in ABBREV_ARGS.keys():
+
             value = args.get(prop)
             if value is None:
                 continue
-            elif prop == "O":
+
+            elif prop == "O" and isinstance(value, str):
+                if not value.startswith('@'):
+                     value = '@' + value
+
+            if not isinstance(value, dict):
+                value = { value: 1 }
+
+            res, total_weight = None, 0
+
+            for value, weight in value.items():
+
                 if isinstance(value, str):
-                    pp = pp_registry['LOOK_UP'](value)
-                    value = pp.get('O')
-            elif value.startswith('@'):
-                value = value[1:]
-                pp = refresolver(value)
-                value = pp.get(prop)
-            if prop in SHAPES:
-                value = Shape.from_string(value)
-            elif prop in MODS:
-                value = Modulation.from_string(value, pp_registry)
-            setattr(self, '_' + prop, value)
+                    if value.startswith('@'):
+                        value = value[1:]
+                        pp = refresolver(value)
+                        value = pp.get(prop)
+                    elif prop in SHAPES:
+                        value = Shape.from_string(value)
+                    elif prop in MODS:
+                        value = Modulation.from_string(value, pp_registry)
+
+                if res:
+                    total_weight += weight
+                    res = res.weighted_average(
+                        res, weight / total_weight, value
+                    )
+                else:
+                    res, total_weight = value, weight
+
+            setattr(self, '_' + prop, res)
 
         if self.get('O') is None:
             raise Exception("ProtoPartial instance missing oscillator")
