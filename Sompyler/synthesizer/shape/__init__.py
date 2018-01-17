@@ -316,7 +316,7 @@ class Shape:
         return take_sustain
 
     @classmethod
-    def weighted_average (cls, left, dist, right):
+    def weighted_average (cls, left, dist, right, coord0=True):
         """
         Assuming a smooth transition to a right curve in a distance,
         Shape.weighted_average(left_shape, distance, right_shape) returns an
@@ -348,7 +348,9 @@ class Shape:
             r = rcoords[i]
             coords.append(l.weighted_average( l, dist, r ))
 
-        return Shape( (adj_length, coords[0].y), *coords[1:] )
+        max_y = coords[0].y if coord0 else max(i.y for i in coords)
+
+        return Shape( (adj_length, max_y), *coords[int(coord0):] )
 
     def edgy (self):
         return (self.coords[0].y, self.coords[-1].y)

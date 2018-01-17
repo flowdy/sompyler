@@ -91,7 +91,7 @@ class SoundGenerator(Shape):
     @classmethod
     def weighted_average(cls, *args):
 
-        self = super(SoundGenerator, cls).weighted_average(*args)
+        self = super().weighted_average(*args, coord0=False)
         self.__class__ = cls
         del self.coords[0]
 

@@ -253,15 +253,18 @@ def topological_sort(labeled_specs, lookup):
 
     # Extract dependency information
     def find_dependencies(spec):
+        LABEL_REF_RX = r'@([a-z]\w+)'
         dependencies = set()
-        for i in spec:
-            listdeps = re.findall(r'@([a-z]\w+)', i)
+        for i in spec.values():
+            if isinstance(i, dict):
+                listdeps = [ re.findall(LABEL_REF_RX, j) for j in i.keys() ]
+            listdeps = re.findall(LABEL_REF_RX, i)
             for d in listdeps:
                 if d not in labeled_specs:
                     pp = lookup(d)
                     if pp: labeled_specs[d] = pp
                     else: raise RuntimeError(
-                        "Protopartial identifier irresoluble: " + d
+                        "Protopartial reference irresoluble: " + d
                     )
                 dependencies.add(d)
         return dependencies

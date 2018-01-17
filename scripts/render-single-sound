@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
-import sys, argparse, script_preamble
+import sys, argparse, script_preamble, numpy
+import matplotlib.pyplot as plt
+from Sompyler.synthesizer.sympartial import log_to_linear
 from Sompyler.synthesizer import SAMPLING_RATE, BYTES_PER_CHANNEL
 
 parser = argparse.ArgumentParser(description="Render a single tone")
@@ -72,12 +74,8 @@ for i in ('A', 'S', 'T', 'R', 'FM', 'AM', 'WS'):
     properties[i] = arg
 
 def display_graph(curve):
-    import matplotlib.pyplot as plt
-    if isinstance(curve, dict):
-        raise NotImplementedError
-    else:
-        plt.plot(range(len(curve)), curve)
-        plt.show()
+    plt.plot(range(len(curve)), curve)
+    plt.show()
 
 def generate_sound_file(tone, filename):
     import soundfile
@@ -104,7 +102,23 @@ if args.instrument:
     instr = Instrument(args.instrument)
 
     if args.outline:
-        raise NotImplementedError("(to do)")
+        sg = instr.root_variation.sound_generator_for({
+            'pitch': args.pitch,
+            'length': args.length,
+            'stress': args.stress,
+        })
+
+        for c in sg.iterate_coords():
+            frequency, amplitude = (
+                c.x * args.pitch,
+                log_to_linear(c.y) * numpy.array( c.symp.envelope.render(args.length) )
+            )
+            plt.plot(range(len(amplitude)), amplitude, label="%.03f Hz" % frequency)
+
+        plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+           ncol=3, mode="expand", borderaxespad=0.)
+        plt.show()
+
 
     else:
         tone = instr.render_tone(
