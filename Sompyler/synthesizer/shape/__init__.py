@@ -337,8 +337,8 @@ class Shape:
 
         if not len(lcoords) == len(rcoords):
             avg_coords_num = int( avg( len(lcoords), len(rcoords) ) + .5 )
-            lcoords = Shape._adjust_coords_num(lcoords, avg_coords_num)
-            rcoords = Shape._adjust_coords_num(rcoords, avg_coords_num)
+            lcoords = cls._adjust_coords_num(lcoords, avg_coords_num)
+            rcoords = cls._adjust_coords_num(rcoords, avg_coords_num)
 
         assert len(lcoords) == len(rcoords)
 
@@ -350,7 +350,7 @@ class Shape:
 
         max_y = coords[0].y if coord0 else max(i.y for i in coords)
 
-        return Shape( (adj_length, max_y), *coords[int(coord0):] )
+        return cls( (adj_length, max_y), *coords[int(coord0):] )
 
     def edgy (self):
         return (self.coords[0].y, self.coords[-1].y)

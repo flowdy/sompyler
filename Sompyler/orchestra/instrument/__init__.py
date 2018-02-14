@@ -6,6 +6,7 @@ from . import combinators
 from ...synthesizer import normalize_amplitude
 from ...synthesizer.oscillator import Oscillator, CORE_PRIMITIVE_OSCILLATORS, Shape
 from ...synthesizer.sound_generator import SoundGenerator
+# from pdb import set_trace
 
 root_osc = CORE_PRIMITIVE_OSCILLATORS()
 
@@ -50,13 +51,13 @@ class Variation(object):
 
     __slots__ = (
         'upper', 'base', '_variation_composer',
-        'label_specs', '_partial_spec', '_timbre_spec'
+        'label_specs', '_profile', '_timbre', '_spread'
     )
 
     def __init__(
         self, upper, base, label_specs=None,
-        _variation_composer=None, _partial_spec=None,
-        _timbre_spec=None,
+        _variation_composer=None, _profile=None,
+        _timbre=None, _spread=None
       ):
 
         if label_specs is None:
@@ -73,8 +74,9 @@ class Variation(object):
 
         self._variation_composer = _variation_composer
 
-        self._partial_spec = _partial_spec
-        self._timbre_spec = _timbre_spec
+        self._profile = _profile
+        self._timbre = _timbre
+        self._spread = _spread
 
     def lookup(self, name):
         spec = self.label_specs.get(name)
@@ -102,10 +104,6 @@ class Variation(object):
         label_specs = {}
         base_args = {}
 
-        timbre = kwargs.pop('TIMBRE', None)
-        if timbre is not None:
-            timbre = Shape.from_string(timbre)
-
         for attr in list( kwargs.keys() ):
             if not isinstance(attr, str):
                continue
@@ -114,6 +112,10 @@ class Variation(object):
             elif re.match('[A-Z][A-Z]{0,2}$', attr):
                 base_args[attr] = kwargs.pop(attr)
 
+        timbre = kwargs.pop('TIMBRE', None)
+        if timbre is not None:
+            timbre = Shape.from_string(timbre)
+
         self = cls(
             upper, ProtoPartial(
                 base=None, upper=upper.base,
@@ -121,8 +123,9 @@ class Variation(object):
                 **base_args
             ),
             label_specs,
-            _partial_spec=kwargs.pop('PARTIALS', None),
-            _timbre_spec=timbre
+            _profile=kwargs.pop('PROFILE', None),
+            _spread=kwargs.pop('SPREAD', None),
+            _timbre=timbre
         )
 
         if Composer:
@@ -144,6 +147,8 @@ class Variation(object):
             if sg is not None:
                 return sg
 
+        sympartial_points = []
+
         # ---------------
         # We need to make a sound generator from our partial_spec
         # -----
@@ -151,57 +156,68 @@ class Variation(object):
         partials = None
         upper = self
         while upper and partials is None:
-            partials = upper._partial_spec
+            partials = upper._profile
             upper = upper.upper
-        self._partial_spec = partials
+        self._profile = partials
 
         # Our partial spec might be just a simple label.
         # Resolve it for only one partial.
         if isinstance(partials, str):
-            partials = [ { 0: (100, partials) } ]
+            partials = [ (100, partials) ]
 
-        sympartial_points = []
-        for pno, divs in enumerate(partials):
-            pno += 1
-            if not isinstance(divs, dict) or 'V' in divs:
-                divs = { 0: divs }
-            for d in sorted( divs.keys() ):
-                p = divs[d]
-                freq_factor = pno * 2 ** (d/1200)
-                if isinstance(p, tuple):
-                    sympartial = self.lookup( p[1] ).sympartial()
-                    volume = p[0]
-                elif isinstance(p, dict):
-                    volume = p['V']
-                    labels = self.label_specs
-                    labels['LOOK_UP'] = upper.lookup
-                    sympartial = ProtoPartial(
-                        None, self.base, labels, **p
-                    ).sympartial()
-                elif isinstance(p, str):
-                    m = re.match(r'(\d+)\s+(\w+)', p)
-                    if m:
-                        sympartial = self.lookup( m.group(2) ).sympartial()
-                        volume = int(m.group(1))
-                    else:
-                        raise TypeError(
-                            "Could not parse string: " + p
-                        )
-                elif isinstance(p, int):
-                    sympartial = None
-                    volume = p
+        def piter():
+            for p in partials:
+                if isinstance(p, list):
+                    yield from (int(x) for x in p)
+                else:
+                    yield p
+
+        for p in piter():
+            deviance = 0
+
+            if isinstance(p, tuple):
+                sympartial = self.lookup( p[1] ).sympartial()
+                volume = p[0]
+            elif isinstance(p, dict):
+                volume = p['V']
+                deviance = p.get('D', 0)
+                labels = self.label_specs
+                labels['LOOK_UP'] = upper.lookup
+                sympartial = ProtoPartial(
+                    None, self.base, labels, **p
+                ).sympartial()
+            elif isinstance(p, str):
+                m = re.match(r'(\d+)\s+(\w+)', p)
+                if m:
+                    sympartial = self.lookup( m.group(2) ).sympartial()
+                    volume = int(m.group(1))
                 else:
                     raise TypeError(
-                        p + " must be int (volume) or tuple (volume, label)"
+                        "Could not parse string: " + p
                     )
-                sympartial_points.append( (freq_factor, volume, sympartial ) )
+            elif isinstance(p, int):
+                sympartial = None
+                volume = p
+            else:
+                raise TypeError(
+                    p + " must be int (volume) or tuple (volume, label)"
+                )
+
+            sympartial_points.append( (deviance, volume, sympartial ) )
 
         boundary_symp = None if (
             sympartial_points[0][2] or sympartial_points[-1][2]
         ) else self.base.sympartial()
 
-        soundgen = SoundGenerator(
-            boundary_symp, sympartial_points, boundary_symp
+        spread = None
+        upper = self
+        while upper and spread is None:
+            spread = upper._spread
+            upper = upper.upper
+        self._spread = spread or []
+
+        soundgen = SoundGenerator.shape(
+            boundary_symp, sympartial_points, boundary_symp, self._spread
         )
 
         # -------------------
@@ -212,10 +228,9 @@ class Variation(object):
         timbre = None
         upper = self
         while upper and timbre is None:
-            timbre = upper._timbre_spec
+            timbre = upper._timbre
             upper = upper.upper
-
-        self._timbre_spec = timbre
+        self._timbre = timbre
 
         min_diff = 1.0
         prior_coord_x = soundgen.coords[0].x
@@ -237,8 +252,8 @@ class Variation(object):
 
 root_osc = Variation(
     None, None, root_osc,
-    _partial_spec=[ 100 ],
-    _timbre_spec=Shape.from_string("20000:1;1,1")
+    _profile=[ 100 ],
+    _timbre=Shape.from_string("20000:1;1,1")
 )
 
 def topological_sort(labeled_specs, lookup):

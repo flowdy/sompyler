@@ -4,14 +4,33 @@ from .envelope import Envelope, Shape
 from .shape.point import SympartialPoint
 import numpy as np
 import re
+from itertools import repeat, chain
+
+def _deviate(f, d):
+    return f * 2 ** (d/1200)
 
 class SoundGenerator(Shape):
-    __slots__ = tuple()
+    __slots__ = ('spread')
 
-    def __init__(self, initial, the_list, term):
-    
-        tmp = []
-    
+    @classmethod
+    def shape(cls, initial, the_list, term, spread):
+        """ Get a new SoundGenerator instance. Please note:
+            This function is not called __init__() just because
+            we later need to call __init__ explicitly from
+            the parent, but with us as the actual invocant.
+        """
+
+        partial_seqno = 0
+        cum_deviation = 0
+        def spreaditer():
+            nonlocal partial_seqno, cum_deviation
+            for dev in chain(spread, repeat(0)):
+                partial_seqno += 1
+                cum_deviation += int(dev)
+                yield _deviate(partial_seqno, cum_deviation)
+
+        sprit = spreaditer()
+
         if initial is None:
             try:
                 initial = next(p[2] for p in the_list if p[2] is not None)
@@ -21,7 +40,10 @@ class SoundGenerator(Shape):
                   + repr(the_list)
                 )
         mylist = [(0.0, 0, initial)]
-        mylist.extend(p for p in the_list)
+
+        for p in the_list:
+            p = (_deviate(next(sprit), p[0]), p[1], p[2])
+            mylist.append(p)
     
         if term is None:
             term = next(p[2] for p in reversed(the_list) if p[2] is not None)
@@ -30,6 +52,8 @@ class SoundGenerator(Shape):
     
         last_freq = 0
         last_symp = None
+    
+        tmp = []
     
         for i1, v in enumerate(mylist):
     
@@ -58,8 +82,11 @@ class SoundGenerator(Shape):
             last_freq = freq0
             last_symp = symp
     
-        super(SoundGenerator, self).__init__((mylist[-2][0], 0), *mylist[1:-1])
-        del self.coords[0]
+        soundgen = cls( (mylist[-2][0], 0), *mylist[1:-1] )
+        soundgen.spread = sprit
+        del soundgen.coords[0]
+
+        return soundgen
 
     def render(self, base_freq, duration=0, args=None):
 
@@ -89,10 +116,21 @@ class SoundGenerator(Shape):
 
 
     @classmethod
-    def weighted_average(cls, *args):
+    def weighted_average(cls, l, dist, r):
 
-        self = super().weighted_average(*args, coord0=False)
-        self.__class__ = cls
+        if l.length != r.length:
+            shorter, longer = sorted((l, r), key=lambda s: s.length )
+            div = longer.length / shorter.length
+            while shorter.coords[-1].x < div:
+                x = next(shorter.spread)
+                overflowing_x = x / shorter.length
+                shorter.coords.append(
+                    longer.coords[-1].new_alike(x=overflowing_x, y=0)
+                )
+            for c in shorter.coords: c.x /= div
+            shorter.length = x
+
+        self = super().weighted_average(l, dist, r, coord0=False)
         del self.coords[0]
 
         return self

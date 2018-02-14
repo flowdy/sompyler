@@ -2,21 +2,8 @@ name: Violin
 source: https://de.wikipedia.org/wiki/Frequenzspektrum#/media/File:Geigentonspektrum.svg, bottom left figure
 character:
     O: "sine"
-    PARTIALS:
+    PROFILE:
         - { V: 100, A: ".1:1,100", R: ".8:100;1,0" }
         - { V: 94, A: ".1:1,100", R: ".1:100;1,0" }
-        - 83
-        - 68
-        - 66
-        - 79
-        - 83
-        - 87
-        - 60
-        - 67
-        - 60
-        - 66
-        - 76
-        - 68
-        - 63
-        - 60
+        - [83, 68, 66, 79, 83, 87, 60, 67, 60, 66, 76, 68, 63, 60]
       # - { V: 0, A: ".1:1,100;2,0" }
