@@ -31,18 +31,20 @@ parser.add_argument("-AM", "--amplitude-modulation", metavar="MOD_DEF", dest="AM
 parser.add_argument("-FM", "--frequency-modulation", metavar="MOD_DEF", dest="FM")
 parser.add_argument("-WS", "--wave-shape", metavar="SHAPE", dest="WS",
     help="Form of each oscillation, projected")
-parser.add_argument("--sound", action='store_true',
+parser.add_argument("--sound", nargs='?', const=True,
     help="If you want sound, make sure you specify an instrument or an oscillator, and a pitch, too." )
-parser.add_argument("--output", "-o", metavar="FILE",
-    help="If you want sound, specify a filename with .wav, .flac, or .mp3 "
-         "extension to choose the respective file type (default is .wav). "
-         "Otherwise, you might want to choose .png just to remind yourself "
-         "that it is a PNG image.")
+parser.add_argument("--output", "-o", "--to-file", metavar="FILE",
+    help="Do not render into interactive viewer, save an image file instead. "
+         "You might want to choose .png just to remind yourself that it is a PNG image."
+)
 parser.add_argument("--outline", action='store_true',
     help="in combination with an instrument definition, a tone is displayed "
          "a line each partial so you can see clearly how it is assembled."
 )
 args = parser.parse_args()
+
+if args.sound and not args.output:
+    args.output = False
 
 class ArgumentError(Exception):
     pass
@@ -73,9 +75,16 @@ for i in ('A', 'S', 'T', 'R', 'FM', 'AM', 'WS'):
         continue
     properties[i] = arg
 
-def display_graph(curve):
+def render_graph(curve):
     plt.plot(range(len(curve)), curve)
-    plt.show()
+    output_graph(plt)
+
+def output_graph(plt):
+    if args.output:
+        print("Will save graph image to file as requested ...")
+        plt.savefig(args.output, bbox_inches='tight')
+    elif args.output is not False:
+        plt.show()
 
 def generate_sound_file(tone, filename):
     import soundfile
@@ -111,13 +120,17 @@ if args.instrument:
         for c in sg.iterate_coords():
             frequency, amplitude = (
                 c.x * args.pitch,
-                log_to_linear(c.y) * numpy.array( c.symp.envelope.render(args.length) )
+                log_to_linear(c.y * numpy.array( c.symp.envelope.render(args.length) ))
             )
-            plt.plot(range(len(amplitude)), amplitude, label="%.03f Hz" % frequency)
+            plt.plot(
+                range(len(amplitude)),
+                amplitude,
+                label="%.03fHz @%ddB" % (frequency, (c.y - 1) * 100)
+            )
 
         plt.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
-           ncol=3, mode="expand", borderaxespad=0.)
-        plt.show()
+           ncol=2, mode="expand", borderaxespad=0.)
+        output_graph(plt)
 
 
     else:
@@ -126,8 +139,9 @@ if args.instrument:
             args.stress
         )
         if args.sound:
-            generate_sound_file(tone, args.output)
-        display_graph(tone)
+            soundfn = None if isinstance(args.sound, bool) else args.sound
+            generate_sound_file(tone, soundfn)
+        render_graph(tone)
 
 elif args.oscillator:
     print( "Render tone of a sympartial ..." )
@@ -140,18 +154,18 @@ elif args.oscillator:
     )
     if args.sound:
         generate_sound_file(tone, args.output)
-    display_graph(tone)
+    render_graph(tone)
 
 elif args.A:
     print( "Rendering bare envelope ..." )
     from Sompyler.synthesizer.envelope import Envelope
     env = Envelope(args.A, args.S, args.T, args.R)
-    display_graph(env.render(args.length))
+    render_graph(env.render(args.length))
 
 elif args.S:
     print( "Rendering bare shape ..." )
     from Sompyler.synthesizer.shape import Shape
-    display_graph(
+    render_graph(
         Shape.from_string(properties['S']).render(args.length * SAMPLING_RATE)
     )
 
