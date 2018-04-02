@@ -6,11 +6,17 @@ source: >
 
     The data for 4186Hz end of scale tones is based on the tuning fork. Nice try, frankly.
 
+    Mix-ins of "fhdupdn" and "fhdown" sustain phases are applied in order to make the
+    sound more and more percussive and to serve the fundamental tone increasing dominance
+    in the long run.
+
 character:
     ATTR: pitch
     TYPE: merge
-    R: .07:100;2,78;3,0
+    R: .10:100;2,78;3,0
     O: sine
+
+    # Properties below will be referenced by '@edb65pNN'
     edb65p01: 
         A: '.24:1,91;2,97;3,100'
         S: '8:100;5,93;8,90;9,83;15,83;16,93;18,93;19,83;100,0'
@@ -38,6 +44,15 @@ character:
     edb65p25:
         A: '.16:1,80;2,100'
         S: '8:100;4,89;8,85;9,80;15,85;16,81;100,0'
+    fhdown:
+        S: '8:20;1,2;5,4;6,3'
+    fhdupdn:
+        S: '8:20;1,3;2,2;3,2;5,5;7,4;10,0'
+    fhrocket:
+        A: '0.003:1,15;2,100'
+    # steepdown:
+    #    A: "0.04:1,1"
+    #    S: "5:100;1,95;2,5;3,1;25,0"
     SPREAD: [
         1, 2, 3, 4, 5, 6, 6, 7, 7, 8, 9, 9, 10, 10, 11, 12, 11, 13,
         13, 13, 14, 14, 15, 15, 15, 17, 16, 17, 17, 18, 18, 19, 19, 20
@@ -59,44 +74,44 @@ character:
       - 77
       - "74 edb65p20"
       - [67, 79, 79, 65]
-      - "62 edb65p20"
+      - "62 edb65p25"
       - [74, 74, 69, 62, 62, 61, 56, 58, 56]
     104:
       PROFILE:
-      - { V: 99, A: '.24:1,91;2,100!;3,100', other: '@edb65p01' }
-      - "100 edb65p02"
-      - "100 edb65p03"
-      - "90 edb65p04"
-      - "94 edb65p05"
+      - { V: 99, S: { "@edb65p01": 3, "@fhdupdn": 1 }, A: { "@edb65p01": 1, "@fhrocket": 3 } }
+      - { V: 100, S: { "@edb65p02": 7, "@fhdupdn": 3 }, A: { "@edb65p02": 2, "@fhrocket": 3 } }
+      - { V: 100, S: { "@edb65p03": 6, "@fhdupdn": 3 }, A: { "@edb65p03": 2, "@fhrocket": 2 } }
+      - { V: 90, S: { "@edb65p03": 5, "@fhdupdn": 3 }, A: { "@edb65p04": 2, "@fhrocket": 1 } }
+      - { V: 94, S: { "@edb65p05": 4, "@fhdupdn": 3 }, A: { "@edb65p05": 2, "@fhrocket": 1 } }
       - [98, 99, 75, 82]
-      - "88 edb65p10"
+      - { V: 88, S: { "@edb65p10": 4, "@fhdupdn": 2, "@fhdown": 1 }, A: { "@edb65p10": 2, "@fhrocket": 1 } }
       - [80, 76, 89, 90]
-      - "79 edb65p15"
+      - { V: 79, S: { "@edb65p15": 4, "@fhdupdn": 1, "@fhdown": 1 }, A: { "@edb65p15": 2, "@fhrocket": 1 } }
       - [63, 74, 74, 69]
-      - "60 edb65p20"
+      - { V: 60, S: { "@edb65p20": 4, "@fhdupdn": 1, "@fhdown": 2 }, A: { "@edb65p20": 2, "@fhrocket": 1 } }
       - [67, 79, 64, 62]
-      - "60 edb65p25"
-      - [62, 57]
+      - { V: 60, S: { "@edb65p25": 4, "@fhdown": 3 }, A: { "@edb65p25": 2, "@fhrocket": 1 } }
+      - [62, 57, 52, 45]
     207:
       PROFILE:
-      - { V: 94, A: '.24:1,91;2,100!;3,95;4,100', other: "@edb65p01" }
-      - "100 edb65p02"
-      - "98 edb65p03"
-      - "86 edb65p04"
-      - "85 edb65p05"
+      - { V: 94, S: { "@edb65p01": 5, "@fhdupdn": 1 }, A: { "@edb65p01": 1, "@fhrocket": 3 } }
+      - { V: 100, S: { "@edb65p02": 6, "@fhdupdn": 4 }, A: { "@edb65p02": 1, "@fhrocket": 2 } }
+      - { V: 98, S: { "@edb65p03": 5, "@fhdupdn": 4 }, A: { "@edb65p03": 2, "@fhrocket": 1 } }
+      - { V: 86, S: { "@edb65p04": 4, "@fhdupdn": 4 }, A: { "@edb65p04": 1, "@fhrocket": 1 } }
+      - { V: 85, S: { "@edb65p05": 3, "@fhdupdn": 4 }, A: { "@edb65p05": 1, "@fhrocket": 1 } }
       - [87, 84, 73, 72]
-      - "68 edb65p10"
+      - { V: 68, S: { "@edb65p10": 4, "@fhdupdn": 3, "@fhdown": 3 }, A: { "@edb65p10": 1, "@fhrocket": 1 } }
       - [67, 64, 63, 58]
-      - "56 edb65p15"
+      - { V: 56, S: { "@edb65p15": 4, "@fhdown": 5 }, A: { "@edb65p15": 1, "@fhrocket": 1 } }
     415:
       PROFILE:
-      - { V: 100, A: '.24:1,95;2,100!;3,90;4,100;5,100', other: "@edb65p01" }
-      - "82 edb65p02"
-      - "88 edb65p03"
-      - "71 edb65p04"
-      - "80 edb65p05"
+      - { V: 100, S: { "@edb65p01": 7, "@fhdupdn": 1 }, A: { "@edb65p01": 1, "@fhrocket": 5 } }
+      - { V: 82, S: { "@edb65p02": 6, "@fhdupdn": 6 }, A: { "@edb65p02": 1, "@fhrocket": 4 } }
+      - { V: 88, S: { "@edb65p03": 5, "@fhdupdn": 6 }, A: { "@edb65p03": 1, "@fhrocket": 3 } }
+      - { V: 71, S: { "@edb65p04": 4, "@fhdupdn": 6 }, A: { "@edb65p04": 1, "@fhrocket": 1 } }
+      - { V: 80, S: { "@edb65p05": 3, "@fhdupdn": 6 }, A: { "@edb65p05": 1, "@fhrocket": 1 } }
       - [72, 75, 58, 0]
-      - "0 edb65p10"
+      - { V: 0, S: { "@edb65p10": 6, "@fhdown": 6 }, A: { "@edb65p10": 1, "@fhrocket": 1 } }
     4187:
       S: 1.8:10;1,7;10,0
       PROFILE:
