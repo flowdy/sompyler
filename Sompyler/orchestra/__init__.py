@@ -11,7 +11,7 @@ def play(score_fh, workers=None, monitor=None):
 
     max_end_offset = 0
 
-    initialize_worker( mkdtemp() )
+    initialize_worker( mkdtemp(prefix='sompyler_cached-notes-') )
 
     if workers is None or workers > 1:
         import multiprocessing 
