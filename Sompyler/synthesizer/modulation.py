@@ -12,7 +12,7 @@ class Modulation:
         phase_angle_degrees=0, overdrive=True, arg1_periods_unit=False, 
     ):
         """ We have a constant socket and a part to modulate, the heights
-            of which are given in a relation (base_share:mod_share)
+            of which are given in a relation (mod_share:base_share)
 
         [-------|-------|-------|-------] Frequency in intervals per second
            *     *     *     *     *    T
@@ -37,7 +37,7 @@ class Modulation:
     @classmethod
     def from_string(cls, string, cache, default_oscillator):
         m = re.match(
-            r"(\d+)(p)?(?:@(\w+))?;(\d+):(\d+)([+-]\d+)?",
+            r"([\d.]+)(p)?(?:@(\w+))?;(\d+):(\d+)([+-]\d+)?",
             string
         )
 
@@ -45,7 +45,7 @@ class Modulation:
 
             opts = {}
             ml = [
-                int(m.group(1)),
+                float(m.group(1)),
                 int(m.group(4)) if m.group(4) else None,
                 int(m.group(5)) if m.group(5) else None,
                 None,
@@ -84,8 +84,6 @@ class Modulation:
 
     @classmethod
     def weighted_average(cls, left, dist, right):
-
-        assert not ( dist < 0 or dist > 1 )
 
         avg = lambda a, b: (1 - dist) * a + dist * b
 
