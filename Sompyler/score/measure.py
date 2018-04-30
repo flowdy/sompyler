@@ -25,7 +25,8 @@ class Measure:
     def __init__(
             self, structure, stage, previous, cut=None,
             stress_pattern=None, ticks_per_minute=None,
-            lower_stress_bound=None, upper_stress_bound=None
+            lower_stress_bound=None, upper_stress_bound=None,
+            repeat_unmentioned_voices=False,
         ):
 
         self.measure_cut = cut or 0
@@ -81,6 +82,17 @@ class Measure:
         self.voices = stage.voices
 
         self.length = self.stressor.cumlen - abs(self.measure_cut)
+
+        if repeat_unmentioned_voices:
+            for voice in previous.structure.keys():
+                if voice in structure:
+                    continue
+                else:
+                    structure[voice] = True
+
+        for v_name, voice in structure.items():
+            if voice is True:
+                structure[v_name] = previous.structure[v_name]
 
     def calculate_seconds_from_ticks( self, offset, length=None ):
 
