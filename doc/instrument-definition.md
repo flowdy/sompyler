@@ -16,14 +16,14 @@ modulation, amplitude modulation, and wave shape.
 
 A sympartial has an A(D)SR envelope that consists of three bézier shapes.
 
-    * Attack: Length of this phase is always fixed.
+  * Attack: Length of this phase is always fixed.
 
-    * Sustain: Phase is cropped or extended depending on how long the tone is.
-      Extension considers the rise between the last two coordinates.
+  * Sustain: Phase is cropped or extended depending on how long the tone is.
+    Extension considers the rise between the last two coordinates.
 
-    * Release: Length and vertical start (maximum) is adjusted to the end of sustain.
-      Length of the release phase is not considered part of the defining tone length,
-      so tones can overlap.
+  * Release: Length and vertical start (maximum) is adjusted to the end of sustain.
+    Length of the release phase is not considered part of the defining tone length,
+    so tones can overlap.
 
 Percussive sympartials only have an attack phase that ends by zero. With undefined sustain,
 a partial is extended by a constant sustain if attack and release cannot fill the required

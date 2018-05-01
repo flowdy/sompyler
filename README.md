@@ -14,25 +14,25 @@ theory.
 The basic workflow of the sompyler user:
 ----------------------------------------
 
-    1. Make sure there are instrument definition files. A set of instrument definitions are
-       included in the official code distribution. Feel free to make your own, load one from
-       the internet, whatever. Instrument definitions can either be added to the sompyler
-       installation so they can be shared between projects, or they can be stored inside a
-       specific project directory. The files are expected to end `*.spli`.
-       [Learn how to define a sompyler instrument](doc/instrument-definition.md)
+  1. Make sure there are instrument definition files. A set of instrument definitions are
+     included in the official code distribution. Feel free to make your own, load one from
+     the internet, whatever. Instrument definitions can either be added to the sompyler
+     installation so they can be shared between projects, or they can be stored inside a
+     specific project directory. The files are expected to end `*.spli`.
+     [Learn how to define a sompyler instrument](doc/instrument-definition.md)
 
-    2. Make the score file, extension `*.spls`. The score file is a sequence of YAML text
-       streams. The first YAML document describes the score, i.e. title, composer, etc., and
-       also the stage. The stage definition declares all voices which can be sent notes in
-       the subsequent YAML documents of the stream, measure for measure. A voice is basically
-       a path of an instrument definition file, interpreted as relative to sompyler installation
-       directory or the music project directory (automatically detected), plus a stereo position
-       and the intensity i.e. the distance to the listener, and optionally other properties.
+  2. Make the score file, extension `*.spls`. The score file is a sequence of YAML text
+     streams. The first YAML document describes the score, i.e. title, composer, etc., and
+     also the stage. The stage definition declares all voices which can be sent notes in
+     the subsequent YAML documents of the stream, measure for measure. A voice is basically
+     a path of an instrument definition file, interpreted as relative to sompyler installation
+     directory or the music project directory (automatically detected), plus a stereo position
+     and the intensity i.e. the distance to the listener, and optionally other properties.
 
-    3. Input following command: `scripts/sompyle path/to/your/score-file.spls /tmp/output.$ext`
-       with $ext being `wav`, `flac` or `ogg`.
+  3. Input following command: `scripts/sompyle path/to/your/score-file.spls /tmp/output.$ext`
+     with $ext being `wav`, `flac` or `ogg`.
 
-    4. Listen and go to step 1 or 2 for another iteration of improvement. 
+  4. Listen and go to step 1 or 2 for another iteration of improvement. 
 
 Currently, sounds are rendered anew in subsequent runs of Sompyler. This admittedly makes gradual
 improvement and trying tedious, which is why persistent caching is planned. Ideally, after your mere
