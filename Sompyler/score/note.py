@@ -103,3 +103,23 @@ class Note:
             s += " (Further properties: " + str(self.properties) + ")"
         return s
               
+    def to_csvible_tuple(self):
+        
+        return (
+                self.instrument, self.stress, self.pitch, self.length
+            ) + tuple(
+                '{}={}'.format(*i) for i in self.properties.items()
+            )
+
+    @classmethod
+    def fake_instances_from_csv(cls, csv):
+
+        for instrument, pitch, stress, length, *other in csv:
+            note = Note.__new__()
+            note.instrument = instrument
+            note.pitch = float(pitch)
+            note.stress = float(stress)
+            note.length = float(length)
+            note.properties = { o.split('=', 1) for o in other }
+            yield note
+

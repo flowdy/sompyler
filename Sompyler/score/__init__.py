@@ -80,33 +80,27 @@ class Score:
                     raise RuntimeError( absfile
                         + " is neither found in same directory as the score "
                           " file nor in the global instruments/ directory "
-                   )
+                    )
         
             return absfile
 
         for note in flattened_notes():
 
-            note_id = self._distinct_notes[0].get( note )
+            note_id = self._note_id.get( note )
 
             if note_id:
-                distinct_note = self._distinct_notes[ note_id ]
+                distinct_note = self._notes[ note_id ]
                 distinct_note.occurrences.extend( note.occurrences )
                 monitor( note_id, note.occurrences[0] )
                 continue
 
             else:
-                note_id = len(self._distinct_notes)
-                self._distinct_notes.append(note)
-                self._distinct_notes[0][ note ] = note_id
-                monitor( note_id, note.occurrences[0], str(note) )
+                note.instrument = get_abspath_to(note.instrument)
+                yield note
 
-                yield (
-                    note_id, get_abspath_to(note.instrument), note.pitch,
-                    note.length, note.stress, note.properties
-                )
-
-    def set_length_for_note(self, note_id, num_samples):
-        self._distinct_notes[ note_id ].num_samples = num_samples
+    def register_unseen_note(self, note, note_id):
+        self._note_id[note] = note_id
+        self._notes[ note_id ] = note
 
     def notes_feed_2nd_pass(self):
 
