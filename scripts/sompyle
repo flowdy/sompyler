@@ -49,7 +49,6 @@ if __name__=='__main__':
                     "instrument specifications linked therein, to audio file"
     )
     parser.add_argument('score_file',
-        type=argparse.FileType('r'),
         help="File containing the Sompyler score in YAML syntax"
     )
     parser.add_argument('out_file',

@@ -1,6 +1,6 @@
 from yaml import load_all
 import re, sys, numpy
-from os import path
+from os import path, readlink
 from ..synthesizer import SAMPLING_RATE
 from ..tone_mapper import get_mapper_from
 from .measure import Measure
@@ -11,8 +11,13 @@ class Score:
 
     def __init__(self, file):
 
-        self._filename = file.name
         self._yamliter = load_all(file)
+        self.directory = path.dirname( path.abspath(file.name) )
+
+        try:
+            self.real_directory = readlink(self.directory)
+        except OSError:
+            self.real_directory = self.directory
 
         metadata = next(self._yamliter)
 
@@ -27,7 +32,8 @@ class Score:
             tuner
         )
 
-        self._distinct_notes = [ dict() ]
+        self._notes = {}
+        self._note_id = {}
 
 
     def notes_feed_1st_pass(self, monitor=lambda: None):
@@ -66,41 +72,25 @@ class Score:
 
                 prev_measure = m
 
-        def get_abspath_to( instrument_spec_fn ):
-        
-            score_directory = path.dirname( path.abspath(self._filename) )
-        
-            fn = instrument_spec_fn + '.spli'
-        
-            if not path.isabs(fn):
-                absfile = path.join(score_directory, fn)
-                if not path.isfile(absfile):
-                    absfile = path.join(sys.path[0], '../instruments', fn)
-                if not path.isfile(absfile):
-                    raise RuntimeError( absfile
-                        + " is neither found in same directory as the score "
-                          " file nor in the global instruments/ directory "
-                    )
-        
-            return absfile
+        new_note_id = 0
 
         for note in flattened_notes():
 
             note_id = self._note_id.get( note )
 
             if note_id:
-                distinct_note = self._notes[ note_id ]
+                distinct_note = self._notes[note_id]
                 distinct_note.occurrences.extend( note.occurrences )
                 monitor( note_id, note.occurrences[0] )
                 continue
 
             else:
-                note.instrument = get_abspath_to(note.instrument)
-                yield note
+                new_note_id += 1
+                yield new_note_id, note
 
-    def register_unseen_note(self, note, note_id):
+    def cache_note(self, note, note_id):
         self._note_id[note] = note_id
-        self._notes[ note_id ] = note
+        self._notes[note_id] = note
 
     def notes_feed_2nd_pass(self):
 
@@ -108,7 +98,7 @@ class Score:
             for offset, position in occ:
                 offset = int(round( SAMPLING_RATE * offset ))
                 position = numpy.array([position]).repeat(num_samples, axis=0)
-                yield (slice(offset, offset + num_samples), position)
+                yield slice(offset, offset + num_samples), position
 
         total_end_offset = 0
         for note in self._distinct_notes[1:]:
@@ -121,6 +111,6 @@ class Score:
                 total_end_offset = end_offset
 
         return total_end_offset, (
-            ( num+1, occiter(note.occurrences, note.num_samples) )
-                for num, note in enumerate(self._distinct_notes[1:])
+            ( note_id, occiter(note.occurrences, note.num_samples) )
+                for note_id, note in self._notes.items()
         )
