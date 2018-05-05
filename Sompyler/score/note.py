@@ -115,11 +115,11 @@ class Note:
     def fake_instances_from_csv(cls, csv):
 
         for instrument, pitch, stress, length, *other in csv:
-            note = Note.__new__()
+            note = Note.__new__(Note)
             note.instrument = instrument
             note.pitch = float(pitch)
             note.stress = float(stress)
             note.length = float(length)
-            note.properties = { o.split('=', 1) for o in other }
+            note.properties = dict( o.split('=', 1) for o in other )
             yield note
 

@@ -5,15 +5,33 @@ from Sompyler.synthesizer import normalize_amplitude
 from Sompyler import synthesizer
 import soundfile
 import argparse, sys, numpy, re
+import pdb
 
-def monitor(note_id, occurrence, description=None):
+def get_monitor(args):
 
-    print("New note" if description else "Reuse note", end='')
-    print(note_id, "@"+str(occurrence), end='')
-    if description:
-        print( ":", description)
-    else:
-        print( "." )
+    v = args.verbose
+    q = args.quiet
+
+    _msgtypes = {
+            'NEWNOTE': ( 'New note {} @{}: {}', True ),
+            'REUSENOTE': ( 'Reuse note {} @{}', True ),
+            'REUSENOTE_FRUN': (
+                'Reuse note {} from former run @{}: {}', True
+            ),
+            'REGNEWNOTES': ( 'Registering {} new notes ...', False ),
+            'DELETEORPHANS': (
+                'Deleting cache files of {} unused notes ...', False
+            ),
+            'ASSEMBLE': ( 'Assembling all samples to one ...', False ),
+        }
+
+    def monitor(msgtype, *args):
+        fmt, verbose_only = _msgtypes[ msgtype ]
+        if (verbose_only and v) or not q:
+            print( fmt.format(*args) )
+
+    return monitor
+
 
 def process(options):
 
@@ -23,9 +41,9 @@ def process(options):
     subtype = options.format or 'PCM_' + str(8 * synthesizer.BYTES_PER_CHANNEL)
 
     try:
-        samples = play(
+        samples, cache_dir = play(
             options.score_file, options.workers,
-            monitor if options.verbose else None
+            get_monitor(options)
         )
     except NoteRenderingFailure as e:
         sys.stderr.write(e.orig_info() + "\n")
@@ -39,6 +57,12 @@ def process(options):
         soundfile.write(
             options.out_file, samples,
             synthesizer.SAMPLING_RATE, subtype
+        )
+
+    print("Cache directory: " + cache_dir
+          + ". You may want to reuse samples in subsequent runs. "
+          + "Just do not pass *.spls path as argument, but that directory"
+            "instead."
         )
 
     return 0
@@ -85,6 +109,11 @@ if __name__=='__main__':
         default=False,
         action='store_true',
         help="Display calculated information to every note"
+    )
+    parser.add_argument('--quiet', '-q',
+        default=False,
+        action='store_true',
+        help='Suppress cache directory hint at the end.'
     )
     args = parser.parse_args()
 

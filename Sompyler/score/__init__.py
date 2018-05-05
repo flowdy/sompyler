@@ -81,7 +81,7 @@ class Score:
             if note_id:
                 distinct_note = self._notes[note_id]
                 distinct_note.occurrences.extend( note.occurrences )
-                monitor( note_id, note.occurrences[0] )
+                monitor( "REUSENOTE", note_id, note.occurrences[0] )
                 continue
 
             else:
@@ -101,7 +101,7 @@ class Score:
                 yield slice(offset, offset + num_samples), position
 
         total_end_offset = 0
-        for note in self._distinct_notes[1:]:
+        for note in self._notes.values():
 
             end_offset = int(round(
                 SAMPLING_RATE * max(o[0] for o in note.occurrences)
