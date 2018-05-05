@@ -1,6 +1,6 @@
 from yaml import load_all
 import re, sys, numpy
-from os import path, readlink
+from os import path, readlink, getpid
 from ..synthesizer import SAMPLING_RATE
 from ..tone_mapper import get_mapper_from
 from .measure import Measure
@@ -15,7 +15,8 @@ class Score:
         self.directory = path.dirname( path.abspath(file.name) )
 
         try:
-            self.real_directory = readlink(self.directory)
+            linkedfile = readlink(file.name)
+            self.real_directory = path.dirname(linkedfile)
         except OSError:
             self.real_directory = self.directory
 

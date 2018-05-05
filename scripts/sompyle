@@ -27,7 +27,8 @@ def get_monitor(args):
 
     def monitor(msgtype, *args):
         fmt, verbose_only = _msgtypes[ msgtype ]
-        if (verbose_only and v) or not q:
+        display = v if verbose_only else not q
+        if display:
             print( fmt.format(*args) )
 
     return monitor
@@ -59,10 +60,10 @@ def process(options):
             synthesizer.SAMPLING_RATE, subtype
         )
 
-    print("Cache directory: " + cache_dir
-          + ". You may want to reuse samples in subsequent runs. "
-          + "Just do not pass *.spls path as argument, but that directory"
-            "instead."
+    print("-------------------------------------------------------------"
+          "Do you want to reuse samples in subsequent runs to save time?\n"
+          "Just do not pass *.spls path as argument, but the cache directory"
+          " instead:\n\t" + cache_dir
         )
 
     return 0

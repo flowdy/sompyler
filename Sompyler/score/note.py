@@ -80,7 +80,10 @@ class Note:
     def __hash__(self):
 
         relevant_data = (
-                self.instrument, self.stress, self.pitch, self.length
+                self.instrument,
+                str(self.stress),
+                str(self.pitch),
+                str(self.length)
             ) + self._sorted_properties_tuple()
 
         return hash(relevant_data)
@@ -89,9 +92,9 @@ class Note:
 
         return (
            self.instrument == other.instrument
-           and self.pitch  == other.pitch
-           and self.stress == other.stress
-           and self.length == other.length
+           and str(self.pitch)  == str(other.pitch)
+           and str(self.stress) == str(other.stress)
+           and str(self.length) == str(other.length)
            and self._sorted_properties_tuple()
             == other._sorted_properties_tuple()
         )
@@ -103,23 +106,22 @@ class Note:
             s += " (Further properties: " + str(self.properties) + ")"
         return s
               
-    def to_csvible_tuple(self):
-        
-        return (
-                self.instrument, self.stress, self.pitch, self.length
-            ) + tuple(
-                '{}={}'.format(*i) for i in self.properties.items()
-            )
+    def to_csvible_tuple(self): return (
+            self.instrument, self.stress, self.pitch, self.length
+        ) + tuple(
+            '{}={}'.format(*i) for i in self.properties.items()
+        ) + (self.num_samples,)
 
     @classmethod
     def fake_instances_from_csv(cls, csv):
 
-        for instrument, pitch, stress, length, *other in csv:
+        for instrument, pitch, stress, length, *other, num_samples in csv:
             note = Note.__new__(Note)
             note.instrument = instrument
             note.pitch = float(pitch)
             note.stress = float(stress)
             note.length = float(length)
             note.properties = dict( o.split('=', 1) for o in other )
+            note.num_samples = int(num_samples)
             yield note
 

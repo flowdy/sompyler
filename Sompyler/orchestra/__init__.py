@@ -3,6 +3,7 @@ from ..score import Score
 from ..score.note import Note
 from tempfile import mkdtemp
 import sys, os, numpy, traceback, pickle, csv
+import pdb
 
 cached_files_dir = None
 prev_run_cache = "TO_INIT"
@@ -53,6 +54,7 @@ def play(score_fn, workers=None, monitor=None):
         if length is None:
             raise NoteRenderingFailure(note_id)
 
+        # pdb.set_trace()
         score.cache_note(note, note_id) 
         note.num_samples = abs(length)
 
@@ -159,8 +161,12 @@ def load_prev_run_cache(score):
                 prev_run_cache[ note ] = (
                     note_cnt
                         if note.instrument in uptodate_instruments
-                        else -note_cnt
+                           and os.path.isfile(
+                                   tone_id_to_filename(note_id, "snd.npy")
+                                )
+                        else -note_cnt,
                            # ^ negation to just re-use id for new note
+                    note.num_samples
                     )
                 note_cnt += 1
 
@@ -193,14 +199,10 @@ def retrieve_or_render_tone(info):
 
     new_note_id, note = info
 
-    note_id = prev_run_cache.get(note, 0)
-    cache_file = tone_id_to_filename(note_id, "snd.npy")
+    note_id, length = prev_run_cache.get(note, (0, None))
 
-    if note_id > 0 and os.path.isfile(cache_file):
-        tone = numpy.load(cache_file)
-        if len(tone.shape) != 1:
-            raise RuntimeError("Numpy shape of tones must be 1")
-        return note, note_id, -len(tone)
+    if note_id > 0:
+        return note, note_id, -length
     elif not note_id:
         note_id = len(prev_run_cache) + new_note_id
     else:
