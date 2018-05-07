@@ -6,7 +6,6 @@ import sys, os, numpy, traceback, pickle, csv
 import pdb
 
 cached_files_dir = None
-prev_run_cache = "TO_INIT"
 
 def play(score_fn, workers=None, monitor=None):
     global cached_files_dir
@@ -31,46 +30,30 @@ def play(score_fn, workers=None, monitor=None):
         pool = multiprocessing.Pool(
             processes=workers,
             initializer=initialize_worker,
-            initargs=[cached_files_dir, prev_run_cache]
+            initargs=[cached_files_dir]
         )
         imap = pool.imap_unordered
     else:
         imap = map
 
-    notes_cnt  = 0
-    errors_cnt = 0
-
-    max_end_offset = 0
-
     if monitor is None:
-        monitor = lambda m, n, o, d=None: None
+        monitor = lambda *m, **n: None
 
     new_notes = set()
 
-    for note, note_id, length in imap(
-            retrieve_or_render_tone, score.notes_feed_1st_pass(monitor)
+    for note_id, length in imap(
+            render_tone, score.notes_feed_1st_pass(monitor)
         ):
         
         if length is None:
             raise NoteRenderingFailure(note_id)
 
-        # pdb.set_trace()
-        score.cache_note(note, note_id) 
-        note.num_samples = abs(length)
+        monitor("NEWNOTE",
+                note_id, note.occurrences[0],
+                str(note)
+            )
 
-        if length > 0:
-            monitor("NEWNOTE",
-                    note_id, note.occurrences[0],
-                    str(note)
-                )
-            new_notes.add( (note_id, note) )
-
-        else: # protect against deletion
-            monitor("REUSENOTE_FRUN",
-                    note_id, note.occurrences[0],
-                    str(note)
-                )
-            _ = prev_run_cache.pop(note,'')
+        score.set_length_for_note(note_id, abs(length))
 
     score_fh.close()
 
@@ -101,6 +84,7 @@ def play(score_fn, workers=None, monitor=None):
 
     return samples, cached_files_dir
 
+
 def get_prepared_tempdir(scorefile):
     tempdir = mkdtemp(prefix='sompyler_cached-notes-')
     os.symlink( os.path.abspath(scorefile), os.path.join(tempdir, "score") )
@@ -109,14 +93,11 @@ def get_prepared_tempdir(scorefile):
     return tempdir
 
 
-def initialize_worker(tempdir, prevruncache):
+def initialize_worker(tempdir):
     global cached_files_dir
-    global prev_run_cache
     cached_files_dir = tempdir
-    prev_run_cache = prevruncache
 
 def load_prev_run_cache(score):
-    global prev_run_cache
 
     prev_run_cache = {}
 
@@ -164,11 +145,12 @@ def load_prev_run_cache(score):
                            and os.path.isfile(
                                    tone_id_to_filename(note_id, "snd.npy")
                                 )
-                        else -note_cnt,
+                        else -note_cnt
                            # ^ negation to just re-use id for new note
-                    note.num_samples
                     )
                 note_cnt += 1
+
+    score.initialize_cache(prev_run_cache)
 
     return registry_path
 
@@ -195,24 +177,15 @@ def get_cached_instrument(instrument):
     return instrument
 
 
-def retrieve_or_render_tone(info):
+def render_tone(info):
 
-    new_note_id, note = info
+    note_id, instrument, pitch, length, stress, properties = info
 
-    note_id, length = prev_run_cache.get(note, (0, None))
-
-    if note_id > 0:
-        return note, note_id, -length
-    elif not note_id:
-        note_id = len(prev_run_cache) + new_note_id
-    else:
-        note_id *= -1 # so it is positive again
-
-    instrument = get_cached_instrument(note.instrument)
+    instrument = get_cached_instrument(instrument)
 
     try:
         tone = instrument.render_tone(
-            note.pitch, note.length, note.stress, note.properties
+            pitch, length, stress, properties
         )
         numpy.save( tone_id_to_filename(note_id, "snd"), tone )
         length = len(tone)
@@ -222,7 +195,7 @@ def retrieve_or_render_tone(info):
             err.write(traceback.format_exc(e))
         length = None
 
-    return note, note_id, length
+    return note_id, length
 
 
 def tone_id_to_filename(id, ext):

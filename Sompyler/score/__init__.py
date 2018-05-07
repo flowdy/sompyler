@@ -1,5 +1,5 @@
 from yaml import load_all
-import re, sys, numpy
+import re, sys, numpy, pdb
 from os import path, readlink, getpid
 from ..synthesizer import SAMPLING_RATE
 from ..tone_mapper import get_mapper_from
@@ -87,11 +87,20 @@ class Score:
 
             else:
                 new_note_id += 1
-                yield new_note_id, note
+                note_id = self.note_id_offset + new_note_id
+                self._note_id[note]  = note_id
+                self._notes[note_id] = note
+                print("*DEBUG notes_feed_1st_pass* Process ID: {} | id(note): {}".format(
+                    getpid(), id( self._notes[note_id] )
+                ))
+                yield note_id, note
 
-    def cache_note(self, note, note_id):
-        self._note_id[note] = note_id
-        self._notes[note_id] = note
+    def set_length_for_note(self, note_id, length):
+        note = self._notes[note_id]
+        note.num_samples = length
+        print("*DEBUG set_length_for_note* Process ID: {} | id(note): {} | Samples: {}".format(
+            getpid(), id(note), note.num_samples
+        ))
 
     def notes_feed_2nd_pass(self):
 
