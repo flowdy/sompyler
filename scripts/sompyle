@@ -60,7 +60,7 @@ def process(options):
             synthesizer.SAMPLING_RATE, subtype
         )
 
-    print("-------------------------------------------------------------"
+    print("-- PLEASE NOTE: ---------------------------------------------\n"
           "Do you want to reuse samples in subsequent runs to save time?\n"
           "Just do not pass *.spls path as argument, but the cache directory"
           " instead:\n\t" + cache_dir

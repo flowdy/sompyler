@@ -1,13 +1,49 @@
 import re
 
 class Note:
+    """ Abstract description of a tone
+
+    Mandatory properties: pitch in Hz, length in seconds, stress
+
+    Optional properties:
+      * occurrences in the score, expected as tuple of three values:
+        * position in the time line, in seconds
+        * volume on the left channel, on the range 0.0 (mute) to 1.0 (max. vol)
+        * volume on the right channel, on the range 0.0 (mute) to 1.0 (max. vol)
+        (First or only occurrence can be given as "occurrence" parameter to
+        the constructor, but any further need to be passed by
+        note.add_occurrence(time_pos, left_pos, right_pos).)
+      * num_samples, if known or tone has been calculated
+      * 'am_shape', 'fm_shape' and other, instrument-specific properties
+
+    """
+
     __slots__ = (
         'instrument', 'stress', 'pitch',
-        'properties', 'length', 'num_samples', 'occurrences'
+        'properties', 'length', 'num_samples', '_occurrences'
     )
 
     def __init__(
-            self, instrument, stress, properties,
+            self, instrument, pitch, length, stress,
+            occurrence=None, num_samples=None, **properties
+        ):
+
+        self.instrument = instrument
+        self.pitch = pitch
+        self.length = length
+        self.stress = stress
+        self.properties = properties
+        self._occurrences = []
+
+        if occurrence is not None:
+            self.add_occurrence(*occurrence)
+
+        if num_samples is not None:
+            self.num_samples = num_samples
+
+    @classmethod
+    def from_score(
+            cls, instrument, dynamic_stress, properties,
             calc_span, total_offset, offset_ticks, position, tuner
         ):
 
@@ -25,22 +61,21 @@ class Note:
         if 'weight' not in properties:
            properties['weight'] = properties.pop("W", 1)
         
-        self.instrument = instrument
         offset_ticks += properties.get('offset', 0)
-        offset, self.length = calc_span(
+        offset, length = calc_span(
             offset_ticks, float( properties.pop('length') )
         )
         offset += total_offset
-        self.occurrences = [ (float(offset), position) ]
-        self.properties = properties
+        pos = (float(offset), *position)
+        properties = properties
 
         weight = properties.pop('weight')
         if isinstance(weight, str):
             m = re.match(r'(\d+)(?:\*([\d.]+))?', weight)
             if m:
-                self.stress = (
+                stress = (
                     int( m.group(1) ),
-                    stress * float( m.group(2) or 1 )
+                    dynamic_stress * float( m.group(2) or 1 )
                 )
             else:
                 raise SyntaxError(
@@ -48,13 +83,13 @@ class Note:
                     "second representing extra stress_factor"
                 )
         else:
-            self.stress = (float(weight), stress)
+            stress = (float(weight), dynamic_stress)
 
         m = re.match(
             r'(\S+?\d)([+-]\d+)?$', properties['pitch']
         )
         if m:
-            self.pitch = tuner( m.group(1) ) * 2 ** (
+            pitch = tuner( m.group(1) ) * 2 ** (
                 int( m.group(2) or 0 ) / 1200.0
             )
         else:
@@ -66,8 +101,36 @@ class Note:
 
         del properties['pitch']
 
-        return
+        return cls(
+            instrument, pitch, length, stress,
+            occurrence=pos, *properties
+        )
+
+    @classmethod
+    def from_csv(cls, instrument, pitch, length, stress, num_samples, *other):
+
+        other = dict( o.split('=', 1) for o in other )
+        other['num_samples'] = int(num_samples)
+        return cls(instrument, pitch, length, stress, **other)
+
+    def add_occurrence(self, time_position, left, right):
+
+        time_position = float(time_position)
+        left = float(left)
+        right = float(right)
+
+        self._occurrences.append( (time_position, (left, right)) )
         
+    def add_occurrences_of(self, other):
+        for time_pos, (left, right) in other._occurrences:
+            self.add_occurrence(time_pos, left, right)
+
+    def is_unused(self):
+        return not self._occurrences
+
+    def occurrence_iter(self):
+        return (o for o in self._occurrences)
+
     def _sorted_properties_tuple(self):
 
         return tuple(
@@ -107,21 +170,8 @@ class Note:
         return s
               
     def to_csvible_tuple(self): return (
-            self.instrument, self.stress, self.pitch, self.length
-        ) + tuple(
+            self.instrument, self.pitch, self.length, self.stress
+        ) + (self.num_samples,) + tuple(
             '{}={}'.format(*i) for i in self.properties.items()
-        ) + (self.num_samples,)
-
-    @classmethod
-    def fake_instances_from_csv(cls, csv):
-
-        for instrument, pitch, stress, length, *other, num_samples in csv:
-            note = Note.__new__(Note)
-            note.instrument = instrument
-            note.pitch = float(pitch)
-            note.stress = float(stress)
-            note.length = float(length)
-            note.properties = dict( o.split('=', 1) for o in other )
-            note.num_samples = int(num_samples)
-            yield note
+        )
 

@@ -17,9 +17,9 @@ class Chord:
     def __iter__(self):
 
         for note in self.notes:
-            yield Note(
+            yield Note.from_score(
                 instrument=self.voice.instrument,
-                stress=self.stress,
+                dynamic_stress=self.stress,
                 properties=note,
                 calc_span=self.calc_span,
                 total_offset=self.total_offset,

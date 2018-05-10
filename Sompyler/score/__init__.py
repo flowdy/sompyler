@@ -1,11 +1,12 @@
 from yaml import load_all
-import re, sys, numpy, pdb
+import re, sys, numpy, csv, pdb
 from os import path, readlink, getpid
 from ..synthesizer import SAMPLING_RATE
 from ..tone_mapper import get_mapper_from
 from .measure import Measure
 from .stressor import Stressor
 from .stage import Stage
+from .note import Note
 
 class Score:
 
@@ -33,8 +34,50 @@ class Score:
             tuner
         )
 
-        self._notes = {}
-        self._note_id = {}
+    def load_prev_run_cache(self, registry_file, instr_check, tonefile_check):
+    
+        prev_run_cache = {}
+    
+        instruments = { v.instrument for v in self.stage.voices.values() }
+        uptodate_instruments = set()
+    
+        for instrument in instruments:
+    
+            fn = instrument + '.spli'
+            
+            if path.isabs(fn):
+                absfile = fn
+            else:
+                absfile = path.join(self.real_directory, fn)
+                if not path.isfile(absfile):
+                    absfile = path.join(sys.path[0], '../instruments', fn)
+                if not path.isfile(absfile):
+                    raise FileNotFoundError( fn
+                        + " is neither found in same directory as the score"
+                          " file nor in the Sompyler's instruments/ directory"
+                    )
+    
+            if instr_check( instrument, absfile ):
+                uptodate_instruments.add( instrument )
+
+        registry_file.seek(0)
+        csvreader = csv.reader(registry_file)
+        note_cnt = 1
+        for t in csvreader:
+            note = Note.from_csv(*t)
+            prev_run_cache[ note ] = note_cnt
+            note_cnt += 1
+
+        notes = [None] * note_cnt
+        notes[0] = prev_run_cache
+        for note, note_id in prev_run_cache.items():
+            notes[note_id] = note
+
+        self._registry_file = registry_file
+        self._distinct_notes = notes
+        self._tonefile_check = tonefile_check
+        self._uptodate_instruments = uptodate_instruments
+        self._notes_new_from_index = note_cnt
 
 
     def notes_feed_1st_pass(self, monitor=lambda: None):
@@ -61,7 +104,6 @@ class Score:
                             note.stress = (
                                 note.stress[0] / sum_weights * note.stress[1]
                             )
-
                         vbnotes.extend(chord_notes)
 
                     max_stress = max(n.stress for n in vbnotes)
@@ -73,36 +115,60 @@ class Score:
 
                 prev_measure = m
 
-        new_note_id = 0
-
         for note in flattened_notes():
 
-            note_id = self._note_id.get( note )
+            note_id = self._distinct_notes[0].get( note )
 
             if note_id:
-                distinct_note = self._notes[note_id]
-                distinct_note.occurrences.extend( note.occurrences )
-                monitor( "REUSENOTE", note_id, note.occurrences[0] )
-                continue
+
+                distinct_note = self._distinct_notes[note_id]
+                first_use = distinct_note.is_unused()
+                distinct_note.add_occurrences_of(note)
+
+                if not first_use:
+                    monitor(
+                        "REUSENOTE", note_id, next(note.occurrence_iter())
+                    )
+                    continue
+
+                elif (
+                       note.instrument in self._uptodate_instruments
+                       and self._tonefile_check(note_id)
+                     ):
+
+                    monitor(
+                        "REUSENOTE_FRUN", note_id,
+                        next(note.occurrence_iter()), str(note)
+                    )
+                    continue
 
             else:
-                new_note_id += 1
-                note_id = self.note_id_offset + new_note_id
-                self._note_id[note]  = note_id
-                self._notes[note_id] = note
-                print("*DEBUG notes_feed_1st_pass* Process ID: {} | id(note): {}".format(
-                    getpid(), id( self._notes[note_id] )
-                ))
-                yield note_id, note
+                note_id = len(self._distinct_notes)
+                self._distinct_notes[0][note] = note_id
+                self._distinct_notes.append(note)
+
+            monitor("NEWNOTE",
+                    note_id, next(note.occurrence_iter()),
+                    str(note)
+                )
+
+            yield (
+                    note_id, note.instrument, note.pitch, note.stress,
+                    note.length, note.properties
+                )
+
 
     def set_length_for_note(self, note_id, length):
-        note = self._notes[note_id]
+        note = self._distinct_notes[note_id]
         note.num_samples = length
-        print("*DEBUG set_length_for_note* Process ID: {} | id(note): {} | Samples: {}".format(
-            getpid(), id(note), note.num_samples
-        ))
 
     def notes_feed_2nd_pass(self):
+
+        csv_w = csv.writer(self._registry_file)
+        for note in self._distinct_notes[self._notes_new_from_index:]:
+            csv_w.writerow(note.to_csvible_tuple())
+
+        self._registry_file.close()
 
         def occiter(occ, num_samples):
             for offset, position in occ:
@@ -111,16 +177,28 @@ class Score:
                 yield slice(offset, offset + num_samples), position
 
         total_end_offset = 0
-        for note in self._notes.values():
+        unused_notes = []
+
+        for note in self._distinct_notes[1:]:
+
+            if note.is_unused():
+                continue
 
             end_offset = int(round(
-                SAMPLING_RATE * max(o[0] for o in note.occurrences)
+                SAMPLING_RATE * max(o[0] for o in note.occurrence_iter())
             )) + note.num_samples
 
             if end_offset > total_end_offset:
                 total_end_offset = end_offset
 
-        return total_end_offset, (
-            ( note_id, occiter(note.occurrences, note.num_samples) )
-                for note_id, note in self._notes.items()
-        )
+        def note_iter():
+            for note_id, note in enumerate(self._distinct_notes[1:]):
+                note_id += 1
+                if note.is_unused():
+                    unused_notes.append(note_id)
+                    continue
+                yield note_id, occiter(
+                        note.occurrence_iter(), note.num_samples
+                    )
+
+        return total_end_offset, unused_notes, note_iter()
