@@ -136,7 +136,7 @@ def get_cached_instrument(instrument):
 
 def render_tone(info):
 
-    note_id, instrument, pitch, length, stress, properties = info
+    note_id, instrument, pitch, stress, length, properties = info
 
     instrument = get_cached_instrument(instrument)
 
