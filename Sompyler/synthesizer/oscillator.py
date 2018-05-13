@@ -116,6 +116,7 @@ def CORE_PRIMITIVE_OSCILLATORS (**osc_args):
         'sine': _sine_wave,
         'sawtooth': _sawtooth_wave,
         'square': _square_wave,
+        'triangle': _triangle_wave,
         'noise': _noise_generator,
     }
 
@@ -141,7 +142,9 @@ def _square_wave(iseq, freq, phase):
     x = iseq * freq / SAMPLING_RATE + phase
     return 2 * (np.floor(x) - np.round(x)) + 1
 
-
+def _triangle_wave(iseq, freq, phase):
+    x = iseq * freq / SAMPLING_RATE + phase
+    return np.abs( x % 1 - 1/2) - 1/4
 
 _RANDOMS_1SEC = np.random.random_sample(SAMPLING_RATE)
 
