@@ -2,15 +2,19 @@ from .instrument import Instrument
 from ..score import Score
 from ..score.note import Note
 from tempfile import mkdtemp
-import sys, os, numpy, traceback, pickle
-import pdb
+import sys, os, numpy, traceback, pickle, base64
 
 cached_files_dir = None
+
+def filename_for_instrument_cache(i):
+    return base64.urlsafe_b64encode(
+            bytes(i, encoding="utf-8")
+        ).decode() + ".instr"
 
 def instrument_check(instrument, absfile):
 
     cached_instrument_path = os.path.join(
-            cached_files_dir, str(hash(instrument)) + '.instr'
+            cached_files_dir, filename_for_instrument_cache(instrument)
         )
 
     instrument_is_cached = os.path.isfile(cached_instrument_path)
@@ -94,7 +98,7 @@ def play(score_fn, workers=None, monitor=None):
             os.path.join(cached_files_dir, "unused_tone.files"), "w"
         ) as unused_fh:
         for note_id in unused:
-            print(tone_id_to_filename(note_id, "snd.npy"), out=unused_fh)
+            print(tone_id_to_filename(note_id, "snd.npy"), file=unused_fh)
 
     return samples, cached_files_dir
 
@@ -122,7 +126,8 @@ def get_cached_instrument(instrument):
     else:
 
         cache_file = os.path.join(
-                cached_files_dir, str(hash(instrument)) + ".instr"
+                cached_files_dir,
+                filename_for_instrument_cache(instrument)
             )
 
         with open(cache_file, "rb") as f: 

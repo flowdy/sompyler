@@ -63,8 +63,20 @@ def process(options):
     print("-- PLEASE NOTE: ---------------------------------------------\n"
           "Do you want to reuse samples in subsequent runs to save time?\n"
           "Just do not pass *.spls path as argument, but the cache directory"
-          " instead:\n\t" + cache_dir
-        )
+          " instead:\n\t" + cache_dir + "\n")
+
+    print(
+        """
+        The directory contains "./score", a symbolic link to the initially used score.
+        You may want to change the score, be welcome. You can add other derived scores
+        with different names, which of course need to be appended to the directory on
+        the command line. The same notes and note registry will then be used.
+        Tones for new notes will be rendered and cached as they occur. Tones that are
+        no longer used have been added to the unused-tones.files list, so you can remove
+        them if you want to free the disk space:
+          for i in unused-tones.files; do rm $i; done
+        """
+    )
 
     return 0
 
