@@ -49,7 +49,7 @@ character:
     fhdupdn:
         S: '8:100;1,85;2,95;3,25;4,20;6,56;7,50;8,17;10,5'
     fhdupdn2:
-        S: '8:75;1,65;2,85;3,95;4,25;5,20;7,56;8,50;9,17;11,5'
+        S: '8:75;1,65;2,95;3,85;4,25;10,20;14,56;16,50;18,17;22,5'
     fhrocket:
         A: '0.003:1,15;2,100'
     # steepdown:
@@ -82,7 +82,7 @@ character:
       PROFILE:
       - { V: 99, S: { "@edb65p01": 7, "@fhdupdn": 2 }, A: { "@edb65p01": 1, "@fhrocket": 10 } }
       - { V: 100, S: { "@edb65p02": 5, "@fhdupdn2": 2 }, A: { "@edb65p02": 1, "@fhrocket": 10 } }
-      - { V: 90, S: { "@edb65p03": 6, "@fhdupdn": 3 }, A: { "@edb65p03": 1, "@fhrocket": 8 } }
+      - { V: 100, S: { "@edb65p03": 6, "@fhdupdn": 3 }, A: { "@edb65p03": 1, "@fhrocket": 8 } }
       - { V: 90, S: { "@edb65p03": 5, "@fhdupdn": 4 }, A: { "@edb65p04": 1, "@fhrocket": 6 } }
       - { V: 94, S: { "@edb65p05": 4, "@fhdupdn": 5 }, A: { "@edb65p05": 1, "@fhrocket": 6 } }
       - [98, 99, 75, 82]
@@ -96,9 +96,9 @@ character:
       - [62, 57, 52, 45]
     207:
       PROFILE:
-      - { V: 94, S: { "@edb65p01": 5, "@fhdupdn": 3 }, A: { "@edb65p01": 1, "@fhrocket": 10 } }
+      - { V: 100, S: { "@edb65p01": 5, "@fhdupdn": 3 }, A: { "@edb65p01": 1, "@fhrocket": 10 } }
       - { V: 96, S: { "@edb65p02": 6, "@fhdupdn2": 4 }, A: { "@edb65p02": 1, "@fhrocket": 8 } }
-      - { V: 98, S: { "@edb65p03": 5, "@fhdupdn": 5 }, A: { "@edb65p03": 1, "@fhrocket": 6 } }
+      - { V: 98, S: { "@edb65p03": 5, "@fhdupdn2": 5 }, A: { "@edb65p03": 1, "@fhrocket": 6 } }
       - { V: 86, S: { "@edb65p04": 4, "@fhdupdn": 7 }, A: { "@edb65p04": 1, "@fhrocket": 6 } }
       - { V: 85, S: { "@edb65p05": 3, "@fhdupdn": 10 }, A: { "@edb65p05": 1, "@fhrocket": 6 } }
       - [87, 84, 73, 72]
