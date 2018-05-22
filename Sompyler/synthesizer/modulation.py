@@ -75,7 +75,7 @@ class Modulation:
             (m + b) / (2*b) + 0.5 if self.overdrive else 1
             )
         return o * (
-            m * (e * self.function(iseq, f, p) + 1) / 2 + b
+            m * (e * self.function(f, iseq, p) + 1) / 2 + b
         ) / (m + b)
 
     @classmethod
