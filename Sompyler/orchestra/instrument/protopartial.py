@@ -77,7 +77,7 @@ class ProtoPartial:
                     elif prop in SHAPES:
                         value = Shape.from_string(value)
                     elif prop in MODS:
-                        value = Modulation.from_string(value, pp_registry)
+                        value = Modulation.from_string(value, refresolver)
 
                 if res:
                     total_weight += weight

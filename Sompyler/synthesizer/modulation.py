@@ -9,7 +9,8 @@ class Modulation:
 
     def __init__(
         self, frequency, mod_share, base_share, oscillator,
-        phase_angle_degrees=0, overdrive=True, arg1_periods_unit=False, 
+        phase_angle_degrees=0, overdrive=True, arg1_frequency_unit=False,
+        envelope=None
     ):
         """ We have a constant socket and a part to modulate, the heights
             of which are given in a relation (mod_share:base_share)
@@ -28,42 +29,36 @@ class Modulation:
         self.frequency  = frequency
         self.mod_share  = mod_share
         self.base_share = base_share 
-        self.is_dynamic = arg1_periods_unit
+        self.is_dynamic = arg1_frequency_unit
         self.init_phase = phase_angle_degrees / 360.0
         self.overdrive = overdrive # center base line
-
+        self.envelope = envelope
         self.function = oscillator
 
     @classmethod
-    def from_string(cls, string, cache, default_oscillator):
-        m = re.match(
-            r"([\d.]+)(p)?(?:@(\w+))?;(\d+):(\d+)([+-]\d+)?",
+    def from_string(cls, string, cache):
+        m = re.fullmatch(
+                r"([\d.]+)(f)?(?:@(\w+))?(?:\[([^]]+)\])?;"
+                r"(\d+):(\d+)([+-]\d+)?",
             string
         )
 
         if m:
 
-            opts = {}
-            ml = [
-                float(m.group(1)),
-                int(m.group(4)) if m.group(4) else None,
-                int(m.group(5)) if m.group(5) else None,
-                None,
-                int(m.group(6)) if m.group(6) else 0,
-            ]
-
-            opts['arg1_periods_unit'] = bool(m.group(2))
-
-            if m.group(3):
-                pp = cache[ m.group(3) ]
-                if pp: ml[3] = pp.O
-                else: raise RuntimeError(
-                    "ProtoPartial not defined: {}".format(m.group(3))
-                )
+            if m.group(4) is None:
+                env = None
             else:
-                ml[3] = default_oscillator
+                env = Shape.from_string(m.group(4))
 
-            return Modulation(*ml, **opts)
+            return Modulation(
+                   frequency=float(m.group(1)),
+                   mod_share=int(m.group(5)) if m.group(5) else None,
+                   base_share=int(m.group(6)) if m.group(6) else None,
+                   phase_angle_degrees=int(m.group(7)) if m.group(7) else 0,
+                   arg1_frequency_unit=bool(m.group(2)),
+                   oscillator=cache(m.group(3) or 'sine').get('O'),
+                   envelope=env
+                )
 
         else:
             raise RuntimeError("Modulation definition syntax")
@@ -71,15 +66,16 @@ class Modulation:
     def modulate(self, iseq, freq=None):
         b = self.base_share
         m = self.mod_share
-        f = ( freq / self.frequency if self.is_dynamic
+        f = ( freq * self.frequency if self.is_dynamic
               else self.frequency
             )
+        e = self.envelope.render(len(iseq)) if self.envelope else 1
         p = self.init_phase
         o = (
             (m + b) / (2*b) + 0.5 if self.overdrive else 1
             )
         return o * (
-            m * (self.function(iseq, f, p) + 1) / 2 + b
+            m * (e * self.function(iseq, f, p) + 1) / 2 + b
         ) / (m + b)
 
     @classmethod
