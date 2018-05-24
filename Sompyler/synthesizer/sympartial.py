@@ -25,9 +25,9 @@ class Sympartial:
             envelope = self.envelope
             if envelope is None:
                 iseq = np.arange(duration * SAMPLING_RATE)
-                envelope = 1 # constant
             else:
                 envelope = np.array(envelope.render(duration))
+                share /= np.max(envelope)
                 share *= envelope
                 iseq = np.arange(envelope.size)
         else:
