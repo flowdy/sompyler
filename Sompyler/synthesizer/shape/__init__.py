@@ -139,6 +139,9 @@ class Shape:
 
         base_length = self.length if is_length_factor else 1
 
+        if y_scale is True:
+            y_scale=self.y_max
+
         if adj_length and isinstance(adj_length, bool):
             base_length *= y_scale
             coords = self.new_coords(y_scale=y_scale) 

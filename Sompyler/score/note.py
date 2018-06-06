@@ -19,8 +19,8 @@ class Note:
     """
 
     __slots__ = (
-        'instrument', 'stress', 'pitch',
-        'properties', 'length', 'num_samples', '_occurrences'
+        'instrument', 'stress', 'pitch', 'properties', 'length_ticks',
+        'length_secs', 'num_samples', '_occurrences'
     )
 
     def __init__(
@@ -30,7 +30,8 @@ class Note:
 
         self.instrument = instrument
         self.pitch = pitch
-        self.length = length
+        self.length_ticks = length # need to be converted to seconds at upper
+        self.length_secs = 0       # level as tempo_shape must be respected.
         self.stress = stress
         self.properties = properties
         self._occurrences = []
@@ -44,7 +45,7 @@ class Note:
     @classmethod
     def from_score(
             cls, instrument, dynamic_stress, properties,
-            calc_span, total_offset, offset_ticks, position, tuner
+            offset_ticks, position, tuner
         ):
 
         if isinstance(properties, str):
@@ -61,12 +62,8 @@ class Note:
         if 'weight' not in properties:
            properties['weight'] = properties.pop("W", 1)
         
-        offset_ticks += properties.get('offset', 0)
-        offset, length = calc_span(
-            offset_ticks, float( properties.pop('length') )
-        )
-        offset += total_offset
-        pos = (float(offset), *position)
+        offset_ticks += properties.pop('offset', 0)
+        length_ticks = float( properties.pop('length') )
         properties = properties
 
         weight = properties.pop('weight')
@@ -101,10 +98,10 @@ class Note:
 
         del properties['pitch']
 
-        return cls(
-            instrument, pitch, length, stress,
-            occurrence=pos, *properties
-        )
+        return offset_ticks, (position, cls(
+            instrument, pitch, length_ticks, stress,
+            **properties
+        ))
 
     @classmethod
     def from_csv(cls, instrument, pitch, length, stress, num_samples, *other):
@@ -146,7 +143,7 @@ class Note:
                 self.instrument,
                 str(self.stress),
                 str(self.pitch),
-                str(self.length)
+                str(self.length_secs)
             ) + self._sorted_properties_tuple()
 
         return hash(relevant_data)
@@ -157,20 +154,20 @@ class Note:
            self.instrument == other.instrument
            and str(self.pitch)  == str(other.pitch)
            and str(self.stress) == str(other.stress)
-           and str(self.length) == str(other.length)
+           and str(self.length_secs) == str(other.length_secs)
            and self._sorted_properties_tuple()
             == other._sorted_properties_tuple()
         )
 
     def __str__(self):
         s = "Note played by {} at pitch {:0.3f} with stress {:4.3f}, {:3.2f}s long".format(
-            self.instrument, self.pitch, self.stress, self.length)
+            self.instrument, self.pitch, self.stress, self.length_secs)
         if self.properties:
             s += " (Further properties: " + str(self.properties) + ")"
         return s
               
     def to_csvible_tuple(self): return (
-            self.instrument, self.pitch, self.length, self.stress
+            self.instrument, self.pitch, self.length_secs, self.stress
         ) + (self.num_samples,) + tuple(
             '{}={}'.format(*i) for i in self.properties.items()
         )

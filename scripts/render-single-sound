@@ -10,7 +10,7 @@ parser.add_argument("instrument", type=str, nargs='?',
     metavar="instrument",
     help="Sompyler instrument definition file, YAML or JSON format. Pitch indication (-f num) is required.")
 parser.add_argument("-O", "--oscillator",
-    choices=("sine","square","sawtooth","noise","what"),
+    choices=("sine","square","sawtooth","noise","triangle","cracks"),
     help="Form of oscillation")
 parser.add_argument("--frequency", "--pitch", "-f", type=float, dest='pitch',
     help="Number of oscillations per second" )
@@ -153,7 +153,7 @@ elif args.oscillator:
         args.pitch, args.stress, args.length, {}
     )
     if args.sound:
-        generate_sound_file(tone, args.output)
+        generate_sound_file(tone, args.sound)
     render_graph(tone)
 
 elif args.A:

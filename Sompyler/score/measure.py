@@ -1,24 +1,33 @@
+import pdb
+from math import ceil
 from .stressor import Stressor
 from .chord import Chord
+from ..synthesizer.shape import Shape # realize dynamic tempo and stress
 
-def stress_range(stress):
-
-    if isinstance(stress, int):
-        return (float(stress), 1)
-    elif isinstance(stress, tuple):
-        return stress
+def continuum(some_value):
+    if isinstance(some_value, Shape):
+        return some_value
+    elif isinstance(some_value, int):
+        return Shape.from_string(
+                str(some_value) + ';1,' + str(some_value)
+            )
     else:
-        if isinstance(stress, str):
-            stress = [ float(int(x)) for x in stress.split("-", 1) ]
-        return (
-            stress[0], stress[1] / stress[0]
-        )
+        if isinstance(some_value, str):
+            if '-' in some_value:
+                from_v, to_v = some_value.split('-')
+                some_value = from_v + ';1,' + to_v
+            return Shape.from_string(some_value)
 
+        else: raise TypeError(
+                "continuum must be either int or 'x-y' indication or "
+                "shape definition string/object, but it is a "
+                + type(some_value)
+              )
 
 
 class Measure:
     __slots__ = (
-        'seconds_per_tick', 'stressor', 'offset', 'length', 'structure',
+        'tempo_shape', 'stressor', 'offset', 'length', 'structure',
         'voices', 'measure_cut', 'lower_stress_bound', 'upper_stress_bound'
     )
 
@@ -31,18 +40,10 @@ class Measure:
 
         self.measure_cut = cut or 0
 
-        if previous:
-            self.offset = (
-                previous.offset + previous.calculate_seconds_from_ticks(
-                    max(previous.measure_cut,0) + previous.length
-                )
+        if not previous and ticks_per_minute is None:
+            raise RuntimeError(
+                "First measure must have a tempo (meta[ticks_per_minute])"
             )
-        else:
-            self.offset = 0
-            if ticks_per_minute is None:
-                raise RuntimeError(
-                    "First measure must have a tempo (meta[ticks_per_minute])"
-                )
 
         if stress_pattern is not None:
             self.stressor = Stressor( stress_pattern.split(";") )
@@ -50,30 +51,24 @@ class Measure:
             self.stressor = previous.stressor
 
         if ticks_per_minute is None:
-            self.seconds_per_tick = previous.seconds_per_tick
-        elif isinstance(ticks_per_minute, int):
-            self.seconds_per_tick = (60.0 / ticks_per_minute, 1)
-        elif not isinstance(ticks_per_minute, tuple):
-
-            if isinstance(ticks_per_minute, str):
-                tickets_per_minute = [
-                    int(x) for x in ticks_per_minute.split("-", 1)
-                ]
-                tickets_per_minute.append( tickets_per_minute[0] )
-
-            self.seconds_per_tick = (
-                60.0 / ticks_per_minute[0],
-                ticks_per_minute[0] / ticks_per_minute[1]
-            )
+            self.tempo_shape = previous.tempo_shape
+        else:
+            self.tempo_shape = continuum(ticks_per_minute)
 
         self.lower_stress_bound = (
-            stress_range(lower_stress_bound)
+            continuum(lower_stress_bound).render(
+                    self.stressor.cumlen,
+                    y_scale=True
+                )
                 if lower_stress_bound
                 else previous.lower_stress_bound
         )
 
         self.upper_stress_bound = (
-            stress_range(upper_stress_bound)
+            continuum(upper_stress_bound).render(
+                    self.stressor.cumlen,
+                    y_scale=True
+                )
                 if upper_stress_bound
                 else previous.upper_stress_bound
         )
@@ -94,41 +89,6 @@ class Measure:
             if voice is True:
                 structure[v_name] = previous.structure[v_name]
 
-    def calculate_seconds_from_ticks( self, offset, length=None ):
-
-        min_offset = max(self.measure_cut, 0)
-        max_offset = self.length + min_offset
-
-        if length and offset > max_offset:
-            raise ValueError("Offset exceeding " + str(max_offset))
-
-        if offset < (min_offset if length else self.length):
-            raise ValueError(
-                "Offset " + str(offset) + " too low, must be at least "
-                + str(min_offset)
-            )
-
-        exp_div = 1.0 / self.stressor.cumlen
-
-        spt, spt_factor = self.seconds_per_tick
-
-        def seconds(ticks):
-            return spt * ( ticks if spt_factor == 1 else (
-                           ( spt_factor ** (ticks*exp_div) - 1 )
-                         / ( spt_factor **        exp_div  - 1 )
-                       )
-                   )
-
-        offset_s = seconds(offset)
-        trunc = seconds(min_offset) if min_offset else 0
-
-        if length:
-            length = seconds(offset+length) - offset_s
-            return offset_s - trunc, length
-        else:
-            return offset_s - trunc
-
-
     def __iter__(self):
 
         for v_name, v_chords in self.structure.items():
@@ -139,20 +99,52 @@ class Measure:
                 if not v_meta['stressor'].cumlen == self.stressor.cumlen:
                     raise RuntimeError(
                         "Voice bound measure stressor has other length "
-                        "than global measure"
+                        "than that of the over_all measure"
                     )
-
-            for prop in 'stressor', 'lower_stress_bound', 'upper_stress_bound':
-                if prop not in v_meta:
-                    v_meta[prop] = getattr(self, prop)
 
             yield VoiceBoundMeasure(
                  self, self.voices[v_name], v_chords, **v_meta
             )
 
+    def get_length_calculator(self, diff):
+
+        cumlen = self.stressor.cumlen
+        units = ceil( cumlen / diff )
+        
+        def tpm_to_seconds(tempo):
+            s = 60 * cumlen / (units * tempo)
+            return s
+        
+        tempo_shape = self.tempo_shape
+        tempo_profile = self.tempo_shape.render(units, y_scale=tempo_shape.y_max)
+
+        def calc(offset, length):
+            offset_i, offset_r = divmod(offset, cumlen / units)
+            offset_sum = sum(
+                    tpm_to_seconds(i)
+                        for i in tempo_profile[0:int(offset_i)]
+                ) + offset_r * units / cumlen * tpm_to_seconds(
+                    tempo_profile[int(offset_i)]
+                )
+
+            end_offset_i, end_offset_r = divmod( 
+                    length + offset, cumlen / units
+                )
+            length_sum = sum(
+                    tpm_to_seconds(i)
+                        for i in tempo_profile[0:int(end_offset_i)]
+                ) + (
+                    end_offset_r * units / cumlen
+                      * tpm_to_seconds(tempo_profile[int(end_offset_i)])
+                      if end_offset_i < len(tempo_profile)
+                      else 0
+                ) - offset_sum
+            return offset_sum, length_sum
+
+        return calc
 
 class VoiceBoundMeasure(Measure):
-    __slots__ = ('measure', 'voice', 'chords', 'offsets')
+    __slots__ = ('measure', 'voice', 'chords', 'ticks')
 
     def __init__(
             self, measure, voice, ch_data,
@@ -164,16 +156,22 @@ class VoiceBoundMeasure(Measure):
         self.measure  = measure
         self.voice    = voice
         self.stressor = stressor or measure.stressor
-        self.offsets  = { tick for tick in ch_data }
+        self.ticks    = { t for t in ch_data }
 
         self.lower_stress_bound = (
-            stress_range(lower_stress_bound)
+            continuum(lower_stress_bound).render(
+                    self.stressor.cumlen,
+                    y_scale=True
+                )
                 if lower_stress_bound
                 else measure.lower_stress_bound
         )
 
         self.upper_stress_bound = (
-            stress_range(upper_stress_bound)
+            continuum(upper_stress_bound).render(
+                    self.stressor.cumlen,
+                    y_scale=True
+                )
                 if upper_stress_bound
                 else measure.upper_stress_bound
         )
@@ -183,24 +181,19 @@ class VoiceBoundMeasure(Measure):
     def stress_of_tick( self, tick ):
 
         offset = tick / self.stressor.cumlen
+        tick = int(round(tick))
 
-        ls, ls_factor = self.lower_stress_bound
-        ls = ls * ls_factor**offset
+        ls = self.lower_stress_bound[ tick ]
+        us = self.upper_stress_bound[ tick ]
 
-        us, us_factor = self.upper_stress_bound
-        us = us * us_factor**offset
+        if ls > us:
+            raise ValueError("Lower stress exceeds upper stress")
 
-        stress = ls * (us/ls) ** self.stressor.of(
-            tick, self.offsets
+        return ls * (us/ls) ** self.stressor.of(
+            tick, self.ticks
         )
 
-        return stress / 100.0
-
     def __iter__(self):
-
-        calc_span = self.measure.calculate_seconds_from_ticks
-
-        all_offsets = set( self.chords.keys() )
 
         for tick, chord in self.chords.items():
 
@@ -208,7 +201,5 @@ class VoiceBoundMeasure(Measure):
                 note = chord
                 chord = [note]
             yield Chord(
-                self.measure.offset, tick, self.voice,
-                self.stress_of_tick(tick),
-                calc_span, chord
-            )
+                    tick, self.voice, self.stress_of_tick(tick), chord
+                )

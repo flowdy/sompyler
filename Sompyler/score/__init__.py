@@ -1,5 +1,6 @@
 from yaml import load_all
 import re, sys, numpy, csv, pdb
+from collections import defaultdict
 from os import path, readlink, getpid
 from ..synthesizer import SAMPLING_RATE
 from ..tone_mapper import get_mapper_from
@@ -85,17 +86,33 @@ class Score:
         def flattened_notes():
 
             prev_measure = None
+            prev_cumlength = 0
+            deferred = []
 
             for m in self._yamliter:
                 m = Measure(m, stage=self.stage, previous=prev_measure,
                         **m.pop('_meta', {})
                 )
+                mnotes = defaultdict(list)
+                ticks = {1}
+
+                for orig_offset, pos_note in deferred:
+                    mnotes[-orig_offset].append(pos_note)
+                    ticks.add( min(m.length, pos_note[1].length_ticks) )
+
+                abslength = m.stressor.cumlen
 
                 for vbmeasure in m:
-                    vbnotes = []
 
                     for chord in vbmeasure:
-                        chord_notes = [ note for note in chord ]
+                        chord_notes = []
+                        for offset, pos_note in chord:
+                            mnotes[offset].append(pos_note)
+                            ticks.add(offset)
+                            ticks.add(min(
+                                abslength - offset, pos_note[1].length_ticks
+                            ))
+                            chord_notes.append(pos_note[1])
                         sum_weights = (
                                 sum(n.stress[0] for n in chord_notes)
                               / len( chord_notes )
@@ -104,14 +121,53 @@ class Score:
                             note.stress = (
                                 note.stress[0] / sum_weights * note.stress[1]
                             )
-                        vbnotes.extend(chord_notes)
 
-                    max_stress = max(n.stress for n in vbnotes)
-                    if max_stress < 1:
-                        max_stress = 1
-                    for note in vbnotes:
-                        # note.stress /= max_stress
-                        yield note
+                (last_elem, *ticks) = sorted(ticks)
+                unit = ticks[-1]
+                for i in ticks:
+                    diff = i - last_elem
+                    if diff < unit:
+                        unit = diff
+                    last_elem = i
+
+                lencalc = m.get_length_calculator(unit)
+
+                deferred.clear()
+
+                for offset, pos_notes in mnotes.items():
+                    real_offset = 0 if offset < 0 else offset
+
+                    for (position, note) in pos_notes:
+
+                        lenticks = min(
+                                abslength - real_offset, note.length_ticks
+                            )
+                        note.length_ticks -= lenticks
+
+                        offset_secs, length_secs = lencalc(
+                                real_offset - max(m.measure_cut,0), lenticks
+                            )
+
+                        offset_secs += prev_cumlength
+                        if note.length_ticks == 0 and offset < 0:
+                            offset_secs = abs(offset)
+
+                        note.length_secs += length_secs
+
+                        if note.length_ticks > 0:
+                            deferred.append((
+                                abs(offset) if offset < 0 else offset_secs,
+                                (position, note)
+                            ))
+                        else:
+                            note.add_occurrence(
+                                    offset_secs, *position
+                                )
+                            yield note
+
+                prev_cumlength += lencalc(
+                        max(m.measure_cut,0), m.length
+                    )[1]
 
                 prev_measure = m
 
@@ -154,7 +210,7 @@ class Score:
 
             yield (
                     note_id, note.instrument, note.pitch, note.stress,
-                    note.length, note.properties
+                    note.length_secs, note.properties
                 )
 
 
