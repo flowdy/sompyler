@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
 import numpy as np
-import re
+import re, pdb
+from random import random
 from collections import deque
 from .modulation import Modulation
 from .shape import Shape
@@ -117,6 +118,7 @@ def CORE_PRIMITIVE_OSCILLATORS (**osc_args):
         'square': _square_wave,
         'triangle': _triangle_wave,
         'noise': _noise_generator,
+        'slopy': _slopes_generator,
     }
 
     if 'pp_registry' not in osc_args:
@@ -147,6 +149,19 @@ def _triangle_wave(iseq, freq, phase):
 
 _RANDOMS_1SEC = np.random.random_sample(SAMPLING_RATE)
 
+def _getfreq_rnd(iseq):
+    random_iter = np.nditer(_RANDOMS_1SEC)
+    seq_iter = np.nditer(iseq)
+    count = -1
+    for i in seq_iter:
+        try:
+            rnd = next(random_iter)
+        except StopIteration:
+            random_iter.reset()
+            rnd = next(random_iter)
+        yield ((i - count), rnd)
+        count = i
+
 def _noise_generator(
     iseq, freq, phase=None,
     # rebalance_weight=1, sample_weight=1, last_sample_weight=1
@@ -154,19 +169,6 @@ def _noise_generator(
     """ This noise generator is dynamic in that it respects the
         frequency. The phase is ignored.
     """
-    raw_random_iter = np.nditer(_RANDOMS_1SEC)
-
-    def getfreq_rnd():
-        seq_iter = np.nditer(iseq)
-        count = -1
-        for i in seq_iter:
-            try:
-                rnd = next(raw_random_iter)
-            except StopIteration:
-                raw_random_iter.reset()
-                rnd = next(raw_random_iter)
-            yield ((i - count) * freq, rnd)
-            count = i
 
     def rnd_samples():
 
@@ -176,9 +178,9 @@ def _noise_generator(
 
         posw = 1; negw = 1; recent_samples = deque()
 
-        for (freq, sample) in getfreq_rnd():
+        for ff, sample in _getfreq_rnd(iseq):
         
-            window_size = -2 * freq / SAMPLING_RATE + 1
+            window_size = -2 * freq * ff / SAMPLING_RATE + 1
 
             if window_size > 1:
                 window_size = 1.0
@@ -189,7 +191,7 @@ def _noise_generator(
             else:
                 inv = False
 
-            half_period_length = SAMPLING_RATE / (2*freq)
+            half_period_length = SAMPLING_RATE / (2*freq*ff)
 
             earlier_sample = 0
 
@@ -236,3 +238,22 @@ def _noise_generator(
     noise = np.fromiter(rnd_samples(), np.float32, iseq.size)
     normalize_amplitude(noise)
     return noise
+
+
+def _slopes_generator(iseq, freq, phase=None):
+    freq_rnd_iter = _getfreq_rnd(iseq)
+    def rnd_samples():
+        rnd = 0
+        for i in np.nditer(iseq):
+            ff, basernd = next(freq_rnd_iter)
+            segments = int( round(SAMPLING_RATE / (2*freq*ff)) )
+            i = i % segments
+            if i < 1:
+                last_rnd = rnd
+                rnd = random() * 2 - 1
+            yield last_rnd + (rnd - last_rnd) * i / segments
+    # pdb.set_trace()
+    noise = np.fromiter(rnd_samples(), np.float32, iseq.size)
+    normalize_amplitude(noise)
+    return noise
+
