@@ -45,11 +45,15 @@ character:
         A: '.16:1,80;2,100'
         S: '8:100;4,89;8,85;9,80;15,85;16,81;100,0'
     fhdown:
-        S: '8:20;21,17;24,12;25,10;26,9;27,7;30,6;55,0' # '8:20;1,2;5,4;6,3'
+        S: '3:100;21,17;24,12;25,10;26,9;27,7;30,6;55,0'
+    fhdown2:
+        S: '1.8:10;2,1;10,0'
     fhdupdn:
-        S: '8:100;1,85;2,95;3,25;4,20;6,56;7,50;8,17;10,5'
+        S: '8:100;1,85;2,83;3,60;4,58;6,56;7,50;8,17;10,5'
     fhdupdn2:
-        S: '8:75;2,65;4,95;6,85;8,5;15,10;21,56;24,40;27,17;33,5'
+        # S: '8:100;7,98;8,120;11,130;12,50;13,35;14,28;15,26;19,25;20,26;66,40;100,25'
+        # S: '8:100;3,98;4,105;7,110;8,115;11,110;12,90;13,30;14,28;15,26;19,25;20,26;66,40;100,25'
+        S: '5:100;2,98;4,92;5,91;7,91;8,90;11,90;12,90;13,90;14,40;15,40;16,40;30,40;75,20'
     fhrocket:
         A: '0.003:1,15;2,100'
     # steepdown:
@@ -82,44 +86,44 @@ character:
       PROFILE:
       - { V: 99, S: { "@edb65p01": 7, "@fhdupdn": 2 }, A: { "@edb65p01": 1, "@fhrocket": 10 } }
       - { V: 100, S: { "@edb65p02": 5, "@fhdupdn2": 2 }, A: { "@edb65p02": 1, "@fhrocket": 10 } }
-      - { V: 100, S: { "@edb65p03": 6, "@fhdupdn": 3 }, A: { "@edb65p03": 1, "@fhrocket": 8 } }
-      - { V: 90, S: { "@edb65p03": 5, "@fhdupdn": 4 }, A: { "@edb65p04": 1, "@fhrocket": 6 } }
-      - { V: 94, S: { "@edb65p05": 4, "@fhdupdn": 5 }, A: { "@edb65p05": 1, "@fhrocket": 6 } }
+      - { V: 100, S: { "@edb65p03": 6, "@fhdupdn2": 3 }, A: { "@edb65p03": 1, "@fhrocket": 8 } }
+      - { V: 90, S: { "@edb65p03": 5, "@fhdupdn2": 4 }, A: { "@edb65p04": 1, "@fhrocket": 6 } }
+      - { V: 94, S: { "@edb65p05": 4, "@fhdupdn2": 5 }, A: { "@edb65p05": 1, "@fhrocket": 6 } }
       - [98, 99, 75, 82]
       - { V: 88, S: { "@edb65p10": 4, "@fhdupdn": 2, "@fhdown": 1 }, A: { "@edb65p10": 2, "@fhrocket": 6 } }
       - [80, 76, 89, 90]
-      - { V: 79, S: { "@edb65p15": 3, "@fhdupdn": 1, "@fhdown": 1 }, A: { "@edb65p15": 2, "@fhrocket": 6 } }
+      - { V: 79, S: { "@edb65p15": 3, "@fhdupdn": 1, "@fhdown2": 1 }, A: { "@edb65p15": 2, "@fhrocket": 6 } }
       - [63, 74, 74, 69]
-      - { V: 60, S: { "@edb65p20": 2, "@fhdupdn": 1, "@fhdown": 2 }, A: { "@edb65p20": 2, "@fhrocket": 6 } }
+      - { V: 60, S: { "@edb65p20": 2, "@fhdupdn": 1, "@fhdown2": 2 }, A: { "@edb65p20": 2, "@fhrocket": 6 } }
       - [67, 79, 64, 62]
-      - { V: 60, S: { "@edb65p25": 1, "@fhdown": 2 }, A: { "@edb65p25": 2, "@fhrocket": 6 } }
+      - { V: 60, S: { "@edb65p25": 1, "@fhdown2": 4 }, A: { "@edb65p25": 2, "@fhrocket": 6 } }
       - [62, 57, 52, 45]
     207:
       PROFILE:
-      - { V: 100, S: { "@edb65p01": 5, "@fhdupdn": 3 }, A: { "@edb65p01": 1, "@fhrocket": 10 } }
-      - { V: 96, S: { "@edb65p02": 6, "@fhdupdn2": 4 }, A: { "@edb65p02": 1, "@fhrocket": 8 } }
-      - { V: 98, S: { "@edb65p03": 5, "@fhdupdn2": 5 }, A: { "@edb65p03": 1, "@fhrocket": 6 } }
-      - { V: 86, S: { "@edb65p04": 4, "@fhdupdn": 7 }, A: { "@edb65p04": 1, "@fhrocket": 6 } }
-      - { V: 85, S: { "@edb65p05": 3, "@fhdupdn": 10 }, A: { "@edb65p05": 1, "@fhrocket": 6 } }
+      - { V: 100, S: { "@edb65p01": 5, "@fhdupdn": 3 }, A: { "@edb65p01": 1, "@fhrocket": 20 } }
+      - { V: 96, S: { "@edb65p02": 6, "@fhdupdn2": 4 }, A: { "@edb65p02": 1, "@fhrocket": 16 } }
+      - { V: 98, S: { "@edb65p03": 5, "@fhdupdn2": 5 }, A: { "@edb65p03": 1, "@fhrocket": 12 } }
+      - { V: 86, S: { "@edb65p04": 4, "@fhdupdn2": 7 }, A: { "@edb65p04": 1, "@fhrocket": 8 } }
+      - { V: 85, S: { "@edb65p05": 3, "@fhdupdn": 10 }, A: { "@edb65p05": 1, "@fhrocket": 8 } }
       - [87, 84, 73, 72]
-      - { V: 68, S: { "@edb65p10": 2, "@fhdupdn": 3, "@fhdown": 3 }, A: { "@edb65p10": 1, "@fhrocket": 6 } }
+      - { V: 68, S: { "@edb65p10": 2, "@fhdupdn": 3, "@fhdown2": 3 }, A: { "@edb65p10": 1, "@fhrocket": 12 } }
       - [67, 64, 63, 58]
-      - { V: 56, S: { "@edb65p15": 2, "@fhdown": 5 }, A: { "@edb65p15": 1, "@fhrocket": 6 } }
+      - { V: 56, S: { "@edb65p10": 1, "@fhdown2": 9 }, A: { "@edb65p15": 1, "@fhrocket": 12 } }
+      - [ 50, 53, 43, 30 ]
     415:
       PROFILE:
-      - { V: 100, S: { "@edb65p01": 7, "@fhdupdn": 4 }, A: { "@edb65p01": 1, "@fhrocket": 18 } }
-      - { V: 82, S: { "@edb65p02": 6, "@fhdupdn2": 6 }, A: { "@edb65p02": 1, "@fhrocket": 12 } }
-      - { V: 88, S: { "@edb65p03": 4, "@fhdupdn": 6 }, A: { "@edb65p03": 1, "@fhrocket": 10 } }
-      - { V: 71, S: { "@edb65p04": 2, "@fhdupdn": 6 }, A: { "@edb65p04": 1, "@fhrocket": 2 } }
-      - { V: 80, S: { "@edb65p05": 1, "@fhdupdn": 6 }, A: { "@edb65p05": 1, "@fhrocket": 2 } }
+      - { V: 100, S: { "@edb65p01": 7, "@fhdupdn": 4 }, A: { "@edb65p01": 1, "@fhrocket": 28 } }
+      - { V: 82, S: { "@edb65p02": 6, "@fhdupdn2": 6 }, A: { "@edb65p02": 1, "@fhrocket": 22 } }
+      - { V: 88, S: { "@edb65p03": 4, "@fhdupdn2": 6 }, A: { "@edb65p03": 1, "@fhrocket": 20 } }
+      - { V: 71, S: { "@edb65p04": 2, "@fhdupdn": 6 }, A: { "@edb65p04": 1, "@fhrocket": 4 } }
+      - { V: 80, S: { "@edb65p05": 1, "@fhdupdn": 6 }, A: { "@edb65p05": 1, "@fhrocket": 4 } }
       - [72, 75, 58, 0]
-      - { V: 0, S: { "@edb65p10": 2, "@fhdown": 18 }, A: { "@edb65p10": 1, "@fhrocket": 2 } }
+      - { V: 0, S: { "@edb65p10": 1, "@fhdown2": 19 }, A: { "@edb65p10": 1, "@fhrocket": 4 } }
     4187:
-      S: "@fhdupdn"
-      A: "@fhrocket"
+      A: "@fhrocket" 
       PROFILE:
-      - { V: 100, A: "0.05:1,1" }
-      - { V: 75, A: "0.03:1,85;2,100;3,90" }
+      - { V: 100, S: "@fhdupdn", A: "@fhrocket" }
+      - { V: 60 } #, A: "0.03:1,85;2,100;3,90" }
       - [45, 20, 15]
-      - { V: 10, S: '1.8:10;1,7;10,0' }
+      - { V: 10, S: "@fhdown" }
     

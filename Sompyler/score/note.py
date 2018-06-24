@@ -108,7 +108,9 @@ class Note:
 
         other = dict( o.split('=', 1) for o in other )
         other['num_samples'] = int(num_samples)
-        return cls(instrument, pitch, length, stress, **other)
+        note = cls(instrument, pitch, 0, stress, **other)
+        note.length_secs = length
+        return note
 
     def add_occurrence(self, time_position, left, right):
 

@@ -165,8 +165,10 @@ elif args.A:
 elif args.S:
     print( "Rendering bare shape ..." )
     from Sompyler.synthesizer.shape import Shape
+    l = int(args.length * SAMPLING_RATE)
+    print( "length: {}".format(l) )
     render_graph(
-        Shape.from_string(properties['S']).render(args.length * SAMPLING_RATE)
+        Shape.from_string(properties['S']).render(l)
     )
 
 else:

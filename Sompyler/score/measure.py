@@ -56,19 +56,13 @@ class Measure:
             self.tempo_shape = continuum(ticks_per_minute)
 
         self.lower_stress_bound = (
-            continuum(lower_stress_bound).render(
-                    self.stressor.cumlen,
-                    y_scale=True
-                )
+            continuum(lower_stress_bound)
                 if lower_stress_bound
                 else previous.lower_stress_bound
         )
 
         self.upper_stress_bound = (
-            continuum(upper_stress_bound).render(
-                    self.stressor.cumlen,
-                    y_scale=True
-                )
+            continuum(upper_stress_bound)
                 if upper_stress_bound
                 else previous.upper_stress_bound
         )
@@ -158,22 +152,28 @@ class VoiceBoundMeasure(Measure):
         self.stressor = stressor or measure.stressor
         self.ticks    = { t for t in ch_data }
 
+        if lower_stress_bound:
+            shape = continuum(lower_stress_bound)
+        else:
+            shape = measure.lower_stress_bound
+
         self.lower_stress_bound = (
-            continuum(lower_stress_bound).render(
+            shape.render(
                     self.stressor.cumlen,
                     y_scale=True
                 )
-                if lower_stress_bound
-                else measure.lower_stress_bound
         )
 
+        if upper_stress_bound:
+            shape = continuum(upper_stress_bound)
+        else:
+            shape = measure.upper_stress_bound
+
         self.upper_stress_bound = (
-            continuum(upper_stress_bound).render(
+            shape.render(
                     self.stressor.cumlen,
                     y_scale=True
                 )
-                if upper_stress_bound
-                else measure.upper_stress_bound
         )
 
         self.chords   = ch_data

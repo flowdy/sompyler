@@ -89,7 +89,11 @@ class Score:
             prev_cumlength = 0
             deferred = []
 
+            mno = 0
+
             for m in self._yamliter:
+                mno += 1
+                monitor('NEXTMEASURE', mno)
                 m = Measure(m, stage=self.stage, previous=prev_measure,
                         **m.pop('_meta', {})
                 )

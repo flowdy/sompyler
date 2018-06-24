@@ -22,6 +22,7 @@ def get_monitor(args):
             'DELETEORPHANS': (
                 'Deleting cache files of {} unused notes ...', False
             ),
+            'NEXTMEASURE': ( 'Process next measure no. {}', True ),
             'ASSEMBLE': ( 'Assembling all samples to one ...', False ),
         }
 
