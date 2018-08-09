@@ -1,3 +1,5 @@
+*Please note: This repository is inactive. After the Microsoft deal I decided to move it to [Gitlab](https://gitlab.com/flowdy/sompyler).*
+
 Sompyler
 ========
 
